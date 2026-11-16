@@ -1,0 +1,10 @@
+.vercel
+*.zip
+error_log
+*.log
+scratch/
+before/
+.env.local
+*-journal
+
+.vercel

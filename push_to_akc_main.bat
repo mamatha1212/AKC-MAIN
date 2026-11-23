@@ -7,36 +7,36 @@ echo        Pushing Updates to github.com/mamatha1212/AKC-MAIN
 echo ========================================================
 echo.
 
+echo Current Working Directory: %CD%
+echo.
+
 :: Stage all changed and new files
 echo [1/4] Staging changes...
+git status --short
 git add -A
 
-:: Commit changes
+:: Commit changes if any are pending
+echo.
 echo [2/4] Committing updates...
 git commit -m "Update login flow, modern catalog, notifications sync, and auto-report cron"
 
 :: Ensure the remote for AKC-MAIN exists
-echo [3/4] Checking remote repository...
-git remote get-url akc-main >nul 2>&1
-if %ERRORLEVEL% neq 0 (
-    echo Adding remote 'akc-main' pointing to https://github.com/mamatha1212/AKC-MAIN.git ...
-    git remote add akc-main https://github.com/mamatha1212/AKC-MAIN.git
-)
+echo.
+echo [3/4] Configuring remote repository...
+git remote remove akc-main >nul 2>&1
+git remote add akc-main https://github.com/mamatha1212/AKC-MAIN.git
+git remote -v
 
-:: Push to main branch of AKC-MAIN
+:: Push to main branch with force
+echo.
 echo [4/4] Pushing to AKC-MAIN (main branch)...
-git push -u akc-main main
+echo Command: git push -u akc-main main --force
+git push -u akc-main main --force 2>&1
 
-if %ERRORLEVEL% equ 0 (
-    echo.
-    echo ========================================================
-    echo    SUCCESS! Changes pushed to mamatha1212/AKC-MAIN
-    echo ========================================================
-) else (
-    echo.
-    echo [NOTE] If git requested credentials or rejected the push, please ensure you are logged into GitHub in your browser/Git Credential Manager.
-)
-
+echo.
+echo ========================================================
+echo Execution complete. If you see any error above, please share it.
+echo ========================================================
 echo.
 pause
 

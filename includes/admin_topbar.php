@@ -53,7 +53,7 @@
         sidebarOverlay.addEventListener('click', toggleMobileSidebar);
     }
 </script>
-<?php include_once 'includes/admin_notifications_sync.php'; ?>
+<?php include_once __DIR__ . '/admin_notifications_sync.php'; ?>
 
 <script>
 // Global Bell Dropdown toggle for all pages

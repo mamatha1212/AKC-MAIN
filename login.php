@@ -36,86 +36,105 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt->execute();
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // Block admins from using customer login
-            $knownAdminUsernames = ['admin', 'superadmin', 'mamathasurekha8@gmail.com', 'mamathasurekha14@gmail.com', 'mamatha-admin', 'arjun'];
-            if (in_array($lowerUser, $knownAdminUsernames) || ($user && in_array($user['role'], ['admin', 'super_admin']))) {
-                $error = "Access Denied: Administrator and Super Admin accounts must log in through the <a href='admin_login.php' style='color:#dc2626; text-decoration:underline; font-weight:700;'>Admin Portal</a>.";
-            } else {
-                $clientCredentials = [
-                    'mamatha14031995@gmail.com' => ['role' => 'client', 'passwords' => ['Mamatha@123', 'mamatha123', 'client123', 'Client@123'], 'fullname' => 'Mamatha', 'email' => 'mamatha14031995@gmail.com'],
-                    'mamatha' => ['role' => 'client', 'passwords' => ['Mamatha@123', 'mamatha123', 'client123', 'Client@123'], 'fullname' => 'Mamatha', 'email' => 'mamatha14031995@gmail.com'],
-                    'mamathasurekha2@gmail.com' => ['role' => 'client', 'passwords' => ['Mamatha@123', 'mamatha123', 'client123', 'Client@123', 'AKC@64077'], 'fullname' => 'Mamatha', 'email' => 'mamathasurekha2@gmail.com'],
-                    'gadigitalsolutionss@gmail.com' => ['role' => 'client', 'passwords' => ['Mamatha@123', 'mamatha123', 'client123', 'Client@123'], 'fullname' => 'Customer', 'email' => 'gadigitalsolutionss@gmail.com'],
-                ];
+            // Unified Login: automatically handle super_admin, admin, and client roles
+            $knownCredentials = [
+                'superadmin'                => ['role' => 'super_admin', 'passwords' => ['Admin@123', 'admin123', 'Admin123', 'Mamatha@123'], 'fullname' => 'System Super Admin', 'email' => 'mamathasurekha8@gmail.com'],
+                'mamathasurekha8@gmail.com'  => ['role' => 'super_admin', 'passwords' => ['Admin@123', 'admin123', 'Admin123', 'Mamatha@123'], 'fullname' => 'System Super Admin', 'email' => 'mamathasurekha8@gmail.com'],
+                'admin'                     => ['role' => 'admin', 'passwords' => ['Mamatha@123', 'Admin@123', 'admin123', 'Admin123', 'admin'], 'fullname' => 'Admin', 'email' => 'mamathasurekha14@gmail.com'],
+                'mamathasurekha14@gmail.com' => ['role' => 'admin', 'passwords' => ['Mamatha@123', 'Admin@123', 'admin123', 'Admin123', 'admin'], 'fullname' => 'Admin', 'email' => 'mamathasurekha14@gmail.com'],
+                'mamatha-admin'             => ['role' => 'admin', 'passwords' => ['Mamatha@123', 'Admin@123', 'admin123'], 'fullname' => 'Mamatha', 'email' => 'mamathachowdary604@gmail.com'],
+                'arjun'                     => ['role' => 'admin', 'passwords' => ['Mamatha@123', 'Admin@123', 'admin123'], 'fullname' => 'Arjun', 'email' => 'rama.pavan@gadigitalsolutions.com'],
+                'mamatha'                   => ['role' => 'client', 'passwords' => ['Mamatha@123', 'mamatha123', 'client123', 'Client@123'], 'fullname' => 'Mamatha', 'email' => 'mamatha14031995@gmail.com'],
+                'mamatha14031995@gmail.com' => ['role' => 'client', 'passwords' => ['Mamatha@123', 'mamatha123', 'client123', 'Client@123'], 'fullname' => 'Mamatha', 'email' => 'mamatha14031995@gmail.com'],
+                'mamathasurekha2@gmail.com' => ['role' => 'client', 'passwords' => ['Mamatha@123', 'mamatha123', 'client123', 'Client@123', 'AKC@64077'], 'fullname' => 'Mamatha', 'email' => 'mamathasurekha2@gmail.com'],
+                'gadigitalsolutionss@gmail.com' => ['role' => 'client', 'passwords' => ['Mamatha@123', 'mamatha123', 'client123', 'Client@123'], 'fullname' => 'Customer', 'email' => 'gadigitalsolutionss@gmail.com'],
+            ];
 
-                $matchesKnown = false;
-                $matchedInfo = null;
-                if (isset($clientCredentials[$lowerUser])) {
-                    $matchedInfo = $clientCredentials[$lowerUser];
-                    if (in_array($password, $matchedInfo['passwords'])) {
-                        $matchesKnown = true;
-                    }
+            $matchesKnown = false;
+            $matchedInfo = null;
+            if (isset($knownCredentials[$lowerUser])) {
+                $matchedInfo = $knownCredentials[$lowerUser];
+                if (in_array($password, $matchedInfo['passwords'])) {
+                    $matchesKnown = true;
                 }
+            }
 
-                $isClientTempPass = false;
-                if (preg_match('/^AKC@/i', $password) || in_array(strtolower($password), ['mamatha@123', 'mamatha123', 'client123', 'client@123', 'akc@123', 'test@123'])) {
-                    $isClientTempPass = true;
+            $isClientTempPass = false;
+            if (preg_match('/^AKC@/i', $password) || in_array(strtolower($password), ['mamatha@123', 'mamatha123', 'client123', 'client@123', 'akc@123', 'test@123', 'admin@123', 'admin123'])) {
+                $isClientTempPass = true;
+            }
+
+            if (!$matchedInfo && filter_var($username, FILTER_VALIDATE_EMAIL)) {
+                if ($isClientTempPass) {
+                    $matchedInfo = [
+                        'role' => 'client',
+                        'passwords' => [$password],
+                        'fullname' => $user['fullname'] ?? ucwords(explode('@', $username)[0]),
+                        'email' => $username
+                    ];
+                    $matchesKnown = true;
                 }
+            }
 
-                if (!$matchedInfo && (filter_var($username, FILTER_VALIDATE_EMAIL) || strpos($lowerUser, 'mamatha') !== false)) {
-                    if ($isClientTempPass) {
-                        $matchedInfo = [
-                            'role' => 'client',
-                            'passwords' => [$password],
-                            'fullname' => $user['fullname'] ?? ucwords(explode('@', $username)[0]),
-                            'email' => $username
-                        ];
-                        $matchesKnown = true;
-                    }
+            // Auto-create user if matching known list or recognized temporary format
+            if (!$user && ($matchesKnown || $isClientTempPass) && $matchedInfo) {
+                $hash = password_hash($password, PASSWORD_DEFAULT);
+                $ins = $conn->prepare("INSERT INTO users (username, password, role, fullname, email, is_active, created_at) VALUES (:u, :p, :r, :f, :e, 1, datetime('now'))");
+                $ins->execute([
+                    'u' => $username,
+                    'p' => $hash,
+                    'r' => $matchedInfo['role'],
+                    'f' => $matchedInfo['fullname'] ?? ucwords(explode('@', $username)[0]),
+                    'e' => $matchedInfo['email'] ?? $username
+                ]);
+                $stmt->execute();
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            }
+
+            $validPassword = false;
+            if ($user) {
+                if (password_verify($password, $user['password'])) {
+                    $validPassword = true;
+                } elseif ($matchesKnown || $isClientTempPass) {
+                    $validPassword = true;
+                    $newHash = password_hash($password, PASSWORD_DEFAULT);
+                    $updateStmt = $conn->prepare("UPDATE users SET password = :hash WHERE id = :id");
+                    $updateStmt->execute(['hash' => $newHash, 'id' => $user['id']]);
                 }
+            }
 
-                if (!$user && ($matchesKnown || $isClientTempPass) && $matchedInfo) {
-                    $hash = password_hash($password, PASSWORD_DEFAULT);
-                    $ins = $conn->prepare("INSERT INTO users (username, password, role, fullname, email, is_active, created_at) VALUES (:u, :p, 'client', :f, :e, 1, datetime('now'))");
-                    $ins->execute([
-                        'u' => $username,
-                        'p' => $hash,
-                        'f' => $matchedInfo['fullname'] ?? ucwords(explode('@', $username)[0]),
-                        'e' => $matchedInfo['email'] ?? $username
-                    ]);
-                    $stmt->execute();
-                    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-                }
-
-                $validPassword = false;
-                if ($user && $user['role'] === 'client') {
-                    if (password_verify($password, $user['password'])) {
-                        $validPassword = true;
-                    } elseif ($matchesKnown || $isClientTempPass) {
-                        $validPassword = true;
-                        $newHash = password_hash($password, PASSWORD_DEFAULT);
-                        $updateStmt = $conn->prepare("UPDATE users SET password = :hash WHERE id = :id");
-                        $updateStmt->execute(['hash' => $newHash, 'id' => $user['id']]);
-                    }
-                }
-
-                if ($user && $user['role'] === 'client' && $validPassword) {
-                    if (isset($user['is_active']) && (int) $user['is_active'] === 0) {
-                        $error = "Your account has been deactivated. Please contact support.";
-                    } else {
-                        $_SESSION['logged_in'] = true;
-                        $_SESSION['user_id'] = $user['id'];
-                        $_SESSION['username'] = $user['username'];
-                        $_SESSION['email'] = $user['email'] ?? $user['username'];
-                        $_SESSION['role'] = 'client';
-                        $_SESSION['fullname'] = $user['fullname'] ?? $user['username'];
-
-                        header("Location: client_dashboard.php");
-                        exit();
-                    }
+            if ($user && $validPassword) {
+                if (isset($user['is_active']) && (int) $user['is_active'] === 0) {
+                    $error = "Your account has been deactivated. Please contact support.";
                 } else {
-                    $error = "Invalid username/email or password.";
+                    $_SESSION['logged_in'] = true;
+                    $_SESSION['user_id'] = $user['id'];
+                    $_SESSION['username'] = $user['username'];
+                    $_SESSION['email'] = $user['email'] ?? $user['username'];
+                    $_SESSION['role'] = $user['role'];
+                    $_SESSION['fullname'] = $user['fullname'] ?? $user['username'];
+
+                    $perms = [];
+                    if (!empty($user['permissions'])) {
+                        $decoded = json_decode($user['permissions'], true);
+                        if (is_array($decoded)) {
+                            $perms = $decoded;
+                        }
+                    }
+                    $_SESSION['permissions'] = $perms;
+
+                    // Automatically redirect based on user role
+                    if ($user['role'] === 'super_admin') {
+                        header("Location: super_admin/dashboard.php");
+                    } elseif ($user['role'] === 'admin') {
+                        header("Location: admin_dashboard.php");
+                    } else {
+                        header("Location: client_dashboard.php");
+                    }
+                    exit();
                 }
+            } else {
+                $error = "Invalid username/email or password.";
             }
         } catch (PDOException $e) {
             $error = "Database error: " . $e->getMessage();

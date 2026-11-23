@@ -309,10 +309,12 @@ try {
             align-items: center !important;
             justify-content: center !important;
         }
+
         .modal[style*="display: block"],
         .modal[style*="display:block"] {
             display: flex !important;
         }
+
         .modal .modal-content {
             margin: auto !important;
             max-height: calc(100vh - 60px) !important;
@@ -1074,7 +1076,8 @@ try {
                                                             alt="Sample" class="table-img">
                                                     <?php endif; ?>
                                                 <?php else: ?>
-                                                    <img src="assets/images/plastic_resin/PET Bottles.webp" alt="Sample" class="table-img" title="Sample Specimen">
+                                                    <img src="assets/images/plastic_resin/PET Bottles.webp" alt="Sample"
+                                                        class="table-img" title="Sample Specimen">
                                                 <?php endif; ?>
                                             </td>
                                             <td><?php echo date('M d, Y', strtotime($booking['created_at'])); ?></td>
@@ -1185,9 +1188,8 @@ try {
                                 <?php endif; ?>
 
                                 <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                                    <a href="?page=<?php echo $i; ?><?php echo $queryString; ?>"
-                                        class="page-link <?php if ($i == $page)
-                                            echo 'active'; ?>"><?php echo $i; ?></a>
+                                    <a href="?page=<?php echo $i; ?><?php echo $queryString; ?>" class="page-link <?php if ($i == $page)
+                                              echo 'active'; ?>"><?php echo $i; ?></a>
                                 <?php endfor; ?>
 
                                 <?php if ($page < $totalPages): ?>
@@ -1307,9 +1309,11 @@ try {
             <div class="modal-body">
                 <input type="hidden" id="edit_booking_id">
 
-                <div id="terminal_status_alert" class="hidden" style="background-color: #ecfdf5; color: #065f46; border: 1px solid #d1fae5; padding: 12px 15px; border-radius: 8px; font-size: 14px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                <div id="terminal_status_alert" class="hidden"
+                    style="background-color: #ecfdf5; color: #065f46; border: 1px solid #d1fae5; padding: 12px 15px; border-radius: 8px; font-size: 14px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
                     <i class="fa-solid fa-circle-check" style="font-size: 16px;"></i>
-                    <span id="terminal_status_message">This booking has been completed. The status is finalized and cannot be changed back to Pending or Cancelled.</span>
+                    <span id="terminal_status_message">This booking has been completed. The status is finalized and
+                        cannot be changed back to Pending or Cancelled.</span>
                 </div>
 
                 <div class="form-group">
@@ -1323,25 +1327,36 @@ try {
                 </div>
 
                 <div id="edit_time_wrapper" class="form-group hidden">
-                    <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <span style="font-weight: 600; color: #1e293b;">
-                            <i class="fa-solid fa-calendar-check" style="color: #2563eb; margin-right: 6px;"></i> Estimated Completion Date &amp; Time <span style="color: #ef4444;">*</span>
+                            <i class="fa-solid fa-calendar-check" style="color: #2563eb; margin-right: 6px;"></i>
+                            Estimated Completion Date &amp; Time <span style="color: #ef4444;">*</span>
                         </span>
-                        <span id="selected_date_status_tag" style="font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #fee2e2; color: #ef4444; text-transform: uppercase;">Required</span>
+                        <span id="selected_date_status_tag"
+                            style="font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #fee2e2; color: #ef4444; text-transform: uppercase;">Required</span>
                     </label>
 
                     <!-- Sticky Date/Time Selected Status Banner -->
-                    <div id="selected_time_banner" style="background: #f0f7ff; border: 1.5px solid #bfdbfe; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+                    <div id="selected_time_banner"
+                        style="background: #f0f7ff; border: 1.5px solid #bfdbfe; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <div style="width: 34px; height: 34px; border-radius: 8px; background: #2563eb; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;">
+                            <div
+                                style="width: 34px; height: 34px; border-radius: 8px; background: #2563eb; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;">
                                 <i class="fa-regular fa-clock"></i>
                             </div>
                             <div>
-                                <div style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.4px;">Target Completion</div>
-                                <div id="selected_date_display" style="font-size: 14px; font-weight: 700; color: #1e40af;">Please pick a date &amp; time below</div>
+                                <div
+                                    style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.4px;">
+                                    Target Completion</div>
+                                <div id="selected_date_display"
+                                    style="font-size: 14px; font-weight: 700; color: #1e40af;">Please pick a date &amp;
+                                    time below</div>
                             </div>
                         </div>
-                        <button type="button" id="btn_clear_datetime" onclick="clearSelectedDateTime()" style="background: none; border: none; color: #64748b; font-size: 12px; cursor: pointer; font-weight: 600; padding: 4px 8px; border-radius: 4px; display: none;" title="Reset date">
+                        <button type="button" id="btn_clear_datetime" onclick="clearSelectedDateTime()"
+                            style="background: none; border: none; color: #64748b; font-size: 12px; cursor: pointer; font-weight: 600; padding: 4px 8px; border-radius: 4px; display: none;"
+                            title="Reset date">
                             <i class="fa-solid fa-rotate-left"></i> Reset
                         </button>
                     </div>
@@ -1350,12 +1365,14 @@ try {
                     <input type="hidden" id="edit_estimated_time" name="estimated_time">
 
                     <!-- Sticky Inline Calendar Container (Month and Days always fully visible without scrolling) -->
-                    <div id="inline_calendar_wrapper" style="display: flex; justify-content: center; width: 100%; margin: 6px 0 10px;">
+                    <div id="inline_calendar_wrapper"
+                        style="display: flex; justify-content: center; width: 100%; margin: 6px 0 10px;">
                         <div id="edit_estimated_time_inline"></div>
                     </div>
 
                     <small style="color: #64748b; font-size: 12px; display: block; text-align: center;">
-                        <i class="fa-solid fa-circle-check" style="color: #10b981; margin-right: 4px;"></i> Click any date and time on the calendar, then click <strong>Save Changes</strong>.
+                        <i class="fa-solid fa-circle-check" style="color: #10b981; margin-right: 4px;"></i> Click any
+                        date and time on the calendar, then click <strong>Save Changes</strong>.
                     </small>
                 </div>
 
@@ -1568,8 +1585,29 @@ try {
                 dateFormat: 'Y-m-d H:i',
                 minDate: 'today',
                 time_24hr: false,
-                minuteIncrement: 15,
+                minuteIncrement: 5,
                 onChange: function (selectedDates, dateStr) {
+                    if (selectedDates && selectedDates.length > 0) {
+                        const selected = selectedDates[0];
+                        const now = new Date();
+                        // If selected is in the past, update UI warning banner instead of blocking alert()
+                        const displayEl = document.getElementById('selected_date_display');
+                        const tagEl = document.getElementById('selected_date_status_tag');
+                        if (selected.getTime() < now.getTime()) {
+                            if (displayEl) {
+                                displayEl.innerText = 'Past time selected - please choose a future time';
+                                displayEl.style.color = '#dc2626';
+                            }
+                            if (tagEl) {
+                                tagEl.innerText = 'PAST TIME';
+                                tagEl.style.background = '#fee2e2';
+                                tagEl.style.color = '#dc2626';
+                            }
+                            const hiddenInput = document.getElementById('edit_estimated_time');
+                            if (hiddenInput) hiddenInput.value = '';
+                            return;
+                        }
+                    }
                     const hiddenInput = document.getElementById('edit_estimated_time');
                     if (hiddenInput) hiddenInput.value = dateStr;
                     updateEstimatedTimeDisplay(selectedDates[0]);
@@ -1733,7 +1771,7 @@ try {
         function openEditModal(booking) {
             currentBooking = booking;
             document.getElementById('edit_booking_id').value = booking.id;
-            
+
             const editStatus = document.getElementById('edit_status');
             editStatus.value = booking.status;
 
@@ -1941,9 +1979,16 @@ try {
             const fileInput = document.getElementById('edit_result_files');
             const files = fileInput.files;
 
-            if (status === 'Accept' && !estimated_time) {
-                alert('Estimated completion time is required when accepting a booking.');
-                return;
+            if (status === 'Accept') {
+                if (!estimated_time) {
+                    alert('Estimated completion time is required when accepting a booking.');
+                    return;
+                }
+                const selectedDate = new Date(estimated_time.replace(' ', 'T'));
+                if (selectedDate.getTime() < Date.now()) {
+                    alert('The estimated completion date & time cannot be in the past. Please select a future time.');
+                    return;
+                }
             }
 
             if (status === 'Cancel' && !rejection_reason) {

@@ -107,41 +107,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             $booking_id = $conn->lastInsertId();
 
-            // 4. Notifications & Client Account Creation with Auto-Generated Credentials
-            $stmtUser = $conn->prepare("SELECT id, username, email, role FROM users WHERE LOWER(email) = LOWER(:email) OR LOWER(username) = LOWER(:email) LIMIT 1");
+            // 4. Notifications & Client Account Creation / Recognition
+            $stmtUser = $conn->prepare("SELECT id, username, email, role, password FROM users WHERE LOWER(email) = LOWER(:email) OR LOWER(username) = LOWER(:email) LIMIT 1");
             $stmtUser->execute(['email' => $email]);
             $existing_user = $stmtUser->fetch(PDO::FETCH_ASSOC);
 
-            // Generate a secure, user-friendly temporary password (e.g. AKC@74921)
-            $digits = str_pad((string)rand(10000, 99999), 5, '0', STR_PAD_LEFT);
-            $plain_password = 'AKC@' . $digits;
-            $hashed_password = password_hash($plain_password, PASSWORD_DEFAULT);
             $is_new_account = false;
+            $plain_password = null;
 
             if ($existing_user) {
                 $client_user_id = $existing_user['id'];
-                // For client users, refresh the temporary password so they can log in effortlessly with the credentials sent in this email
-                if (empty($existing_user['role']) || $existing_user['role'] === 'client' || $existing_user['role'] === 'user') {
-                    $updUser = $conn->prepare("
-                        UPDATE users 
-                        SET password = :password,
-                            fullname = COALESCE(NULLIF(fullname, ''), :fullname),
-                            phone = COALESCE(NULLIF(phone, ''), :phone),
-                            is_active = 1
-                        WHERE id = :id
-                    ");
-                    $updUser->execute([
-                        'password' => $hashed_password,
-                        'fullname' => $fullname,
-                        'phone'    => $phone,
-                        'id'       => $client_user_id
-                    ]);
-                } else {
-                    // Do not overwrite password for admin or super_admin
-                    $plain_password = null;
-                }
+                // Existing user: DO NOT overwrite or generate a new password!
+                // Keep their existing password so they can log in with their known credentials.
+                // Update profile information (fullname, phone) if not previously set
+                $updUser = $conn->prepare("
+                    UPDATE users 
+                    SET fullname = COALESCE(NULLIF(fullname, ''), :fullname),
+                        phone = COALESCE(NULLIF(phone, ''), :phone),
+                        is_active = 1
+                    WHERE id = :id
+                ");
+                $updUser->execute([
+                    'fullname' => $fullname,
+                    'phone'    => $phone,
+                    'id'       => $client_user_id
+                ]);
             } else {
-                // Auto-create new Client account
+                // NEW User: Generate a secure temporary password and create a new account
+                $digits = str_pad((string)rand(10000, 99999), 5, '0', STR_PAD_LEFT);
+                $plain_password = 'AKC@' . $digits;
+                $hashed_password = password_hash($plain_password, PASSWORD_DEFAULT);
+
                 $createStmt = $conn->prepare("
                     INSERT INTO users (username, email, password, role, fullname, phone, is_active, created_at)
                     VALUES (:username, :email, :password, 'client', :fullname, :phone, 1, datetime('now'))
@@ -207,16 +203,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $client_email = htmlspecialchars($email);
             $booking_ref = htmlspecialchars($booking_id);
 
-            $infoBox = "<div style='margin-top: 14px; padding: 15px 18px; background: #f0f7ff; border: 1.5px solid #bfdbfe; border-radius: 10px; font-size: 14px; line-height: 1.6; color: #1e3a8a; text-align: left;'>
-                <div style='margin-bottom: 10px; font-weight: 500;'>
-                    <i class='fa-solid fa-envelope' style='color: #0A58CA; font-size: 16px; margin-right: 8px;'></i>
-                    You will receive your login credentials to your email: <strong style='color: #0f172a; text-decoration: underline; font-size: 14.5px;'>{$client_email}</strong>
-                </div>
-                <div style='padding-top: 10px; border-top: 1px dashed #93c5fd; color: #475569; font-size: 13.5px;'>
-                    <i class='fa-solid fa-circle-info' style='color: #0A58CA; margin-right: 6px;'></i>
-                    If you didn't receive any email, <a href='{$forgot_pwd_url}' target='_blank' style='color: #0A58CA; font-weight: 700; text-decoration: underline;'>reset your password from this link</a> and use your email (<strong style='color: #1e293b;'>{$client_email}</strong>) for your username.
-                </div>
-            </div>";
+            if ($is_new_account) {
+                $infoBox = "<div style='margin-top: 14px; padding: 15px 18px; background: #f0f7ff; border: 1.5px solid #bfdbfe; border-radius: 10px; font-size: 14px; line-height: 1.6; color: #1e3a8a; text-align: left;'>
+                    <div style='margin-bottom: 10px; font-weight: 500;'>
+                        <i class='fa-solid fa-envelope' style='color: #0A58CA; font-size: 16px; margin-right: 8px;'></i>
+                        A new client account has been created for you. Login credentials have been sent to: <strong style='color: #0f172a; text-decoration: underline; font-size: 14.5px;'>{$client_email}</strong>
+                    </div>
+                    <div style='padding-top: 10px; border-top: 1px dashed #93c5fd; color: #475569; font-size: 13.5px;'>
+                        <i class='fa-solid fa-circle-info' style='color: #0A58CA; margin-right: 6px;'></i>
+                        If you didn't receive any email, <a href='{$forgot_pwd_url}' target='_blank' style='color: #0A58CA; font-weight: 700; text-decoration: underline;'>reset your password from this link</a> and use your email (<strong style='color: #1e293b;'>{$client_email}</strong>) for your username.
+                    </div>
+                </div>";
+            } else {
+                $infoBox = "<div style='margin-top: 14px; padding: 15px 18px; background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 10px; font-size: 14px; line-height: 1.6; color: #166534; text-align: left;'>
+                    <div style='margin-bottom: 8px; font-weight: 600;'>
+                        <i class='fa-solid fa-circle-check' style='color: #16a34a; font-size: 16px; margin-right: 8px;'></i>
+                        Booking linked to your registered account (<strong style='color: #0f172a;'>{$client_email}</strong>).
+                    </div>
+                    <div style='color: #374151; font-size: 13.5px;'>
+                        Confirmation sent to your email. You can log in anytime with your <strong>existing account password</strong> to track progress and download reports.
+                    </div>
+                </div>";
+            }
 
             $success_message = "Your test booking request (Ref #" . $booking_ref . ") has been submitted successfully!" . $infoBox;
 

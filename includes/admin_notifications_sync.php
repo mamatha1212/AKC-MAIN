@@ -4,8 +4,23 @@
 $sync_db_notif = [];
 if (isset($_SESSION['user_id'])) {
     try {
-        $stmtDbNotify = $conn->prepare("SELECT * FROM user_notifications WHERE user_id = :uid ORDER BY created_at DESC LIMIT 50");
-        $stmtDbNotify->execute(['uid' => $_SESSION['user_id']]);
+        $user_role = $_SESSION['role'] ?? 'admin';
+        if ($user_role === 'super_admin') {
+            // Super Admin sees all system booking notifications or notifications addressed to them
+            $stmtDbNotify = $conn->prepare("
+                SELECT DISTINCT un.* 
+                FROM user_notifications un 
+                WHERE un.user_id = :uid 
+                   OR un.user_id IN (SELECT id FROM users WHERE role = 'admin')
+                   OR un.user_id IS NULL
+                ORDER BY un.created_at DESC 
+                LIMIT 50
+            ");
+            $stmtDbNotify->execute(['uid' => $_SESSION['user_id']]);
+        } else {
+            $stmtDbNotify = $conn->prepare("SELECT * FROM user_notifications WHERE user_id = :uid ORDER BY created_at DESC LIMIT 50");
+            $stmtDbNotify->execute(['uid' => $_SESSION['user_id']]);
+        }
         $sync_db_notif = $stmtDbNotify->fetchAll(PDO::FETCH_ASSOC);
         
         foreach ($sync_db_notif as &$n) {
@@ -70,12 +85,21 @@ function renderGlobalNotifications() {
         };
     });
     
+    function parseNotifDate(dtStr) {
+        if (!dtStr) return new Date();
+        let s = dtStr.replace(' ', 'T');
+        if (!s.endsWith('Z') && !s.includes('+')) {
+            s += 'Z';
+        }
+        return new Date(s);
+    }
+    
     let statusAlerts = dbStatusNotificationsData.map(n => {
         return {
             ...n,
             isTimeAlert: false,
             isRead: n.is_read == 1,
-            sortTime: new Date(n.created_at.replace(' ', 'T')).getTime()
+            sortTime: parseNotifDate(n.created_at).getTime()
         };
     });
     
@@ -157,7 +181,7 @@ function renderGlobalNotifications() {
                         }
                     };
                 } else {
-                    const created = new Date(n.created_at.replace(' ', 'T'));
+                    const created = parseNotifDate(n.created_at);
                     const timeStr = created.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
                     
                     item.innerHTML = `
@@ -253,7 +277,7 @@ function renderGlobalNotifications() {
                         if (typeof openViewModal === 'function') openViewModal(n.booking_data);
                     };
                 } else {
-                    const created = new Date(n.created_at.replace(' ', 'T'));
+                    const created = parseNotifDate(n.created_at);
                     const timeStr = created.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
                     
                     item.innerHTML = `

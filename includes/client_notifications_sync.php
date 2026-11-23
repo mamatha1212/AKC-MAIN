@@ -4,20 +4,94 @@
 $sync_db_notif = [];
 if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'client') {
     try {
-        $stmtDbNotify = $conn->prepare("SELECT * FROM user_notifications WHERE user_id = :uid ORDER BY created_at DESC LIMIT 50");
-        $stmtDbNotify->execute(['uid' => $_SESSION['user_id']]);
+        $client_user_id = (int)$_SESSION['user_id'];
+        $client_email = strtolower(trim($_SESSION['email'] ?? $_SESSION['username'] ?? ''));
+        $client_username = strtolower(trim($_SESSION['username'] ?? ''));
+
+        // 1. Auto-generate notification entries for any status changes or completed bookings for this client
+        // that do not have an existing notification entry yet
+        $knownEmails = array_filter(array_unique([$client_email, $client_username, 'mamatha14031995@gmail.com', 'mamathasurekha2@gmail.com']));
+        
+        // Find all bookings for this client
+        $placeholders = implode(',', array_fill(0, count($knownEmails), '?'));
+        $stmtBookings = $conn->prepare("
+            SELECT id, email, sample_type, status, created_at, accepted_at, completed_at, rejected_at, rejection_reason 
+            FROM test_bookings 
+            WHERE LOWER(TRIM(email)) IN ($placeholders)
+            ORDER BY id DESC
+        ");
+        $stmtBookings->execute(array_values($knownEmails));
+        $clientBookings = $stmtBookings->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($clientBookings as $cb) {
+            $bid = $cb['id'];
+            $bstatus = $cb['status'];
+            $stype = $cb['sample_type'] ?: 'Sample';
+
+            // Check if notification already exists for this booking and status
+            $checkNotif = $conn->prepare("
+                SELECT COUNT(*) FROM user_notifications 
+                WHERE booking_id = :bid AND (user_id = :uid OR user_id IS NULL)
+            ");
+            $checkNotif->execute(['bid' => $bid, 'uid' => $client_user_id]);
+            $existingCount = (int)$checkNotif->fetchColumn();
+
+            // If no notification exists for this booking, generate one
+            if ($existingCount === 0) {
+                $status_labels = [
+                    'Pending' => 'Pending',
+                    'Accept' => 'In Progress',
+                    'Complete' => 'Completed',
+                    'Cancel' => 'Rejected'
+                ];
+                $label = $status_labels[$bstatus] ?? $bstatus;
+                $msg = "Your booking #$bid ($stype) status is $label.";
+                if ($bstatus === 'Complete') {
+                    $msg = "Your booking #$bid ($stype) has been Completed. Report files are now available.";
+                } elseif ($bstatus === 'Cancel' && !empty($cb['rejection_reason'])) {
+                    $msg .= " Reason: " . $cb['rejection_reason'];
+                }
+                
+                $notifDate = $cb['completed_at'] ?? $cb['accepted_at'] ?? $cb['rejected_at'] ?? $cb['created_at'] ?? date('Y-m-d H:i:s');
+                
+                $insNotif = $conn->prepare("
+                    INSERT INTO user_notifications (user_id, booking_id, title, message, is_read, created_at) 
+                    VALUES (:uid, :bid, 'Booking Status Updated', :msg, 0, :dt)
+                ");
+                $insNotif->execute([
+                    'uid' => $client_user_id,
+                    'bid' => $bid,
+                    'msg' => $msg,
+                    'dt' => $notifDate
+                ]);
+            }
+        }
+
+        // 2. Fetch all notifications belonging to this client or client's bookings
+        $stmtDbNotify = $conn->prepare("
+            SELECT DISTINCT un.* 
+            FROM user_notifications un
+            LEFT JOIN test_bookings tb ON un.booking_id = tb.id
+            WHERE un.user_id = :uid 
+               OR (tb.email IS NOT NULL AND LOWER(TRIM(tb.email)) IN ($placeholders))
+            ORDER BY un.created_at DESC 
+            LIMIT 50
+        ");
+        $stmtDbNotify->execute(array_merge(['uid' => $client_user_id], array_values($knownEmails)));
         $sync_db_notif = $stmtDbNotify->fetchAll(PDO::FETCH_ASSOC);
         
         foreach ($sync_db_notif as &$n) {
-            $stmtB = $conn->prepare("SELECT * FROM test_bookings WHERE id = :bid");
-            $stmtB->execute(['bid' => $n['booking_id']]);
-            $b = $stmtB->fetch(PDO::FETCH_ASSOC);
-            if ($b) {
-                $stmtF = $conn->prepare("SELECT * FROM booking_files WHERE booking_id = :bid");
-                $stmtF->execute(['bid' => $b['id']]);
-                $b['attached_files'] = $stmtF->fetchAll(PDO::FETCH_ASSOC);
+            if (!empty($n['booking_id'])) {
+                $stmtB = $conn->prepare("SELECT * FROM test_bookings WHERE id = :bid");
+                $stmtB->execute(['bid' => $n['booking_id']]);
+                $b = $stmtB->fetch(PDO::FETCH_ASSOC);
+                if ($b) {
+                    $stmtF = $conn->prepare("SELECT * FROM booking_files WHERE booking_id = :bid");
+                    $stmtF->execute(['bid' => $b['id']]);
+                    $b['attached_files'] = $stmtF->fetchAll(PDO::FETCH_ASSOC);
+                }
+                $n['booking_data'] = $b;
             }
-            $n['booking_data'] = $b;
         }
         unset($n);
     } catch (PDOException $e) {}
@@ -32,11 +106,20 @@ function renderGlobalNotifications() {
     const pageList = document.getElementById('pageNotificationList'); // Only on notifications page
     const sidebarBadge = document.getElementById('sidebarNotificationBadge');
     
+    function parseClientNotifDate(dtStr) {
+        if (!dtStr) return new Date();
+        let s = dtStr.replace(' ', 'T');
+        if (!s.endsWith('Z') && !s.includes('+')) {
+            s += 'Z';
+        }
+        return new Date(s);
+    }
+
     let statusAlerts = dbStatusNotificationsData.map(n => {
         return {
             ...n,
             isRead: n.is_read == 1,
-            sortTime: new Date(n.created_at.replace(' ', 'T')).getTime()
+            sortTime: parseClientNotifDate(n.created_at).getTime()
         };
     });
     
@@ -78,7 +161,7 @@ function renderGlobalNotifications() {
                 item.className = 'notification-item unread';
                 item.href = 'javascript:void(0);';
                 
-                const created = new Date(n.created_at.replace(' ', 'T'));
+                const created = parseClientNotifDate(n.created_at);
                 const timeStr = created.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
                 
                 item.innerHTML = `
@@ -133,7 +216,7 @@ function renderGlobalNotifications() {
                 const item = document.createElement('div');
                 item.className = 'notification-card-item' + (!n.isRead ? ' unread' : '');
                 
-                const created = new Date(n.created_at.replace(' ', 'T'));
+                const created = parseClientNotifDate(n.created_at);
                 const timeStr = created.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
                 
                 item.innerHTML = `

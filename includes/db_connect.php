@@ -1,4 +1,7 @@
 <?php
+// Set system default timezone to local IST (+05:30)
+date_default_timezone_set('Asia/Kolkata');
+
 // Suppress deprecation warnings from displaying in production
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 

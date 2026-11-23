@@ -10,8 +10,6 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['role'] != 'client') {
 
 $user_email = $_SESSION['username'];
 $fullname = $_SESSION['fullname'];
-
-// Notification data is now handled globally via includes/client_notifications_sync.php
 ?>
 <!DOCTYPE html>
 <html lang="en">

@@ -255,9 +255,15 @@ function akc_send_booking_confirmation($booking) {
             <!-- Customer Portal Login Credentials -->
             <div style='background: #f0f7ff; border: 1.5px solid #bfdbfe; border-radius: 10px; padding: 22px 25px; margin: 25px 0;'>
                 <h3 style='margin: 0 0 10px 0; font-size: 17px; color: #1e40af;'>🔐 Your Client Portal Access &amp; Login Details</h3>
+                " . ($is_new_account ? "
                 <p style='margin: 0 0 15px 0; font-size: 14px; color: #1e3a8a; line-height: 1.5;'>
-                    We have set up an account for you on the AKC Client Portal. You can log in anytime to track your sample testing progress live, view analyst test updates, download accredited certificates, and access your invoices.
+                    Welcome to AKC! A client account has been automatically created for you. You can log in anytime to track your sample testing progress live, view analyst test updates, and download accredited certificates.
                 </p>
+                " : "
+                <p style='margin: 0 0 15px 0; font-size: 14px; color: #1e3a8a; line-height: 1.5;'>
+                    Welcome back! This booking has been linked to your existing AKC Client account. You can log in with your existing password to track progress and download test reports.
+                </p>
+                ") . "
 
                 <div style='background: #ffffff; border: 1px solid #dbeafe; border-radius: 8px; padding: 15px 18px; margin-bottom: 16px;'>
                     <table style='width: 100%; border-collapse: collapse; font-size: 14px;'>
@@ -272,7 +278,13 @@ function akc_send_booking_confirmation($booking) {
                         <tr>
                             <td style='padding: 6px 0; color: #475569;'><strong>Password:</strong></td>
                             <td style='padding: 6px 0;'>
-                                " . ($login_pass ? "<span style='background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-weight: 700; font-family: monospace; font-size: 15px; letter-spacing: 0.5px; border: 1px dashed #f59e0b;'>" . htmlspecialchars($login_pass) . "</span> <span style='font-size: 12px; color: #64748b; margin-left: 6px;'>(Temporary Password)</span>" : "<span style='color: #475569; font-style: italic;'>Use your existing account password</span>") . "
+                                " . ($is_new_account && $login_pass ? "
+                                    <span style='background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-weight: 700; font-family: monospace; font-size: 15px; letter-spacing: 0.5px; border: 1px dashed #f59e0b;'>" . htmlspecialchars($login_pass) . "</span>
+                                    <span style='font-size: 12px; color: #64748b; margin-left: 6px;'>(Temporary Password)</span>
+                                " : "
+                                    <span style='color: #1e293b; font-weight: 600;'>••••••••</span>
+                                    <span style='font-size: 12px; color: #64748b; margin-left: 6px;'>(Use your existing account password)</span>
+                                ") . "
                             </td>
                         </tr>
                     </table>
@@ -285,7 +297,7 @@ function akc_send_booking_confirmation($booking) {
                 </div>
 
                 <div style='background: #ffffff; border-left: 3px solid #f59e0b; padding: 10px 14px; border-radius: 4px; font-size: 12.5px; color: #475569; line-height: 1.5;'>
-                    <strong>💡 Need to change your password?</strong> You can change your password anytime after logging in, or reset it anytime using our <a href='{$forgot_pwd_url}' target='_blank' style='color: #0A58CA; font-weight: 600; text-decoration: underline;'>Forgot Password</a> option.
+                    <strong>💡 Need to change your password?</strong> You can change your password anytime in Profile Settings, or reset it anytime using our <a href='{$forgot_pwd_url}' target='_blank' style='color: #0A58CA; font-weight: 600; text-decoration: underline;'>Forgot Password</a> option.
                 </div>
             </div>
 

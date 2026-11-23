@@ -13,10 +13,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit();
     }
 
-    // Validation: If status is 'Accept', estimated_time is required
-    if ($status === 'Accept' && empty($estimated_time)) {
-        echo json_encode(['success' => false, 'message' => 'Estimated time is required when accepting a booking.']);
-        exit();
+    // Validation: If status is 'Accept', estimated_time is required and must not be in the past
+    if ($status === 'Accept') {
+        if (empty($estimated_time)) {
+            echo json_encode(['success' => false, 'message' => 'Estimated time is required when accepting a booking.']);
+            exit();
+        }
+        $est_timestamp = strtotime($estimated_time);
+        if ($est_timestamp !== false && $est_timestamp < time()) {
+            echo json_encode(['success' => false, 'message' => 'The estimated completion date & time cannot be in the past.']);
+            exit();
+        }
     }
 
     // Validation: If status is 'Cancel', rejection_reason is required
@@ -28,7 +35,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Validation: If status is 'Complete', at least one file is required
     // First, check if files are being uploaded now
     $has_new_files = (isset($_FILES['result_files']) && count($_FILES['result_files']['name']) > 0 && $_FILES['result_files']['error'][0] == 0);
-    
+
     // Then check if there are already files in the DB for this booking
     if ($status === 'Complete' && !$has_new_files) {
         $checkFiles = $conn->prepare("SELECT COUNT(*) FROM booking_files WHERE booking_id = :bid");
@@ -52,7 +59,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $file_name = $_FILES['result_files']['name'][$i];
                 $file_type = $_FILES['result_files']['type'][$i];
                 $file_tmp = $_FILES['result_files']['tmp_name'][$i];
-                
+
                 $extension = pathinfo($file_name, PATHINFO_EXTENSION);
                 $unique_name = "report_" . $booking_id . "_" . uniqid() . "." . $extension;
                 $target_path = $target_dir . $unique_name;
@@ -118,20 +125,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(':status', $status);
         $stmt->bindParam(':id', $booking_id);
-        
+
         if ($status === 'Accept' && !empty($estimated_time)) {
             $stmt->bindParam(':estimated_time', $formatted_time);
         }
         if ($status === 'Cancel' && !empty($rejection_reason)) {
             $stmt->bindParam(':rejection_reason', $rejection_reason);
         }
-        
+
         if ($stmt->execute()) {
             // Check status transition and insert notifications
             if ($old_booking && $old_booking['status'] !== $status) {
                 $old_status = $old_booking['status'];
                 $new_status = $status;
-                
+
                 $status_labels = [
                     'Pending' => 'Pending',
                     'Accept' => 'In Progress',
@@ -140,47 +147,52 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 ];
                 $old_label = $status_labels[$old_status] ?? $old_status;
                 $new_label = $status_labels[$new_status] ?? $new_status;
-                
+
                 $sample_type = $old_booking['sample_type'];
-                
+
                 // Client message
                 $client_msg = "Your booking #$booking_id ($sample_type) status has been updated from $old_label to $new_label.";
                 if ($new_status === 'Cancel' && !empty($rejection_reason)) {
                     $client_msg .= " Reason: $rejection_reason";
                 }
-                
+
                 // Admin message
                 $admin_msg = "Booking #$booking_id ($sample_type) status updated from $old_label to $new_label.";
                 if ($new_status === 'Cancel' && !empty($rejection_reason)) {
                     $admin_msg .= " Reason: $rejection_reason";
                 }
-                
-                // Find Client User ID
+
+                // Find Client User ID (match by username or email)
                 $client_user_id = null;
                 if (!empty($old_booking['email'])) {
-                    $stmtUser = $conn->prepare("SELECT id FROM users WHERE username = :email");
-                    $stmtUser->execute(['email' => $old_booking['email']]);
+                    $stmtUser = $conn->prepare("SELECT id FROM users WHERE LOWER(username) = LOWER(:email) OR LOWER(email) = LOWER(:email) LIMIT 1");
+                    $stmtUser->execute(['email' => trim($old_booking['email'])]);
                     $client_user_id = $stmtUser->fetchColumn() ?: null;
                 }
-                
+
+                // Current local timestamp
+                $current_now = date('Y-m-d H:i:s');
+
                 // Insert for Client
                 if ($client_user_id) {
-                    $stmtInsertClient = $conn->prepare("INSERT INTO user_notifications (user_id, booking_id, title, message) VALUES (:uid, :bid, 'Booking Status Updated', :msg)");
+                    $stmtInsertClient = $conn->prepare("INSERT INTO user_notifications (user_id, booking_id, title, message, created_at) VALUES (:uid, :bid, 'Booking Status Updated', :msg, :dt)");
                     $stmtInsertClient->execute([
                         'uid' => $client_user_id,
                         'bid' => $booking_id,
-                        'msg' => $client_msg
+                        'msg' => $client_msg,
+                        'dt' => $current_now
                     ]);
                 }
-                
+
                 // Insert for Admin(s)
                 $admins = $conn->query("SELECT id FROM users WHERE role = 'admin'")->fetchAll(PDO::FETCH_COLUMN);
                 foreach ($admins as $admin_id) {
-                    $stmtInsertAdmin = $conn->prepare("INSERT INTO user_notifications (user_id, booking_id, title, message) VALUES (:uid, :bid, 'Booking Status Updated', :msg)");
+                    $stmtInsertAdmin = $conn->prepare("INSERT INTO user_notifications (user_id, booking_id, title, message, created_at) VALUES (:uid, :bid, 'Booking Status Updated', :msg, :dt)");
                     $stmtInsertAdmin->execute([
                         'uid' => $admin_id,
                         'bid' => $booking_id,
-                        'msg' => $admin_msg
+                        'msg' => $admin_msg,
+                        'dt' => $current_now
                     ]);
                 }
             }
@@ -188,7 +200,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to update database']);
         }
-    } catch(PDOException $e) {
+    } catch (PDOException $e) {
         echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
     }
 }

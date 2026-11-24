@@ -4,14 +4,14 @@
 $sync_db_notif = [];
 if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'client') {
     try {
-        $client_user_id = (int)$_SESSION['user_id'];
+        $client_user_id = (int) $_SESSION['user_id'];
         $client_email = strtolower(trim($_SESSION['email'] ?? $_SESSION['username'] ?? ''));
         $client_username = strtolower(trim($_SESSION['username'] ?? ''));
 
         // 1. Auto-generate notification entries for any status changes or completed bookings for this client
         // that do not have an existing notification entry yet
         $knownEmails = array_filter(array_unique([$client_email, $client_username, 'mamatha14031995@gmail.com', 'mamathasurekha2@gmail.com']));
-        
+
         // Find all bookings for this client
         $placeholders = implode(',', array_fill(0, count($knownEmails), '?'));
         $stmtBookings = $conn->prepare("
@@ -34,7 +34,7 @@ if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'client') {
                 WHERE booking_id = :bid AND (user_id = :uid OR user_id IS NULL)
             ");
             $checkNotif->execute(['bid' => $bid, 'uid' => $client_user_id]);
-            $existingCount = (int)$checkNotif->fetchColumn();
+            $existingCount = (int) $checkNotif->fetchColumn();
 
             // If no notification exists for this booking, generate one
             if ($existingCount === 0) {
@@ -51,9 +51,9 @@ if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'client') {
                 } elseif ($bstatus === 'Cancel' && !empty($cb['rejection_reason'])) {
                     $msg .= " Reason: " . $cb['rejection_reason'];
                 }
-                
+
                 $notifDate = $cb['completed_at'] ?? $cb['accepted_at'] ?? $cb['rejected_at'] ?? $cb['created_at'] ?? date('Y-m-d H:i:s');
-                
+
                 $insNotif = $conn->prepare("
                     INSERT INTO user_notifications (user_id, booking_id, title, message, is_read, created_at) 
                     VALUES (:uid, :bid, 'Booking Status Updated', :msg, 0, :dt)
@@ -79,13 +79,15 @@ if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'client') {
         ");
         $stmtDbNotify->execute(array_merge(['uid' => $client_user_id], array_values($knownEmails)));
         $sync_db_notif = $stmtDbNotify->fetchAll(PDO::FETCH_ASSOC);
-        
+
         foreach ($sync_db_notif as &$n) {
             if (!empty($n['booking_id'])) {
                 $stmtB = $conn->prepare("SELECT * FROM test_bookings WHERE id = :bid");
                 $stmtB->execute(['bid' => $n['booking_id']]);
                 $b = $stmtB->fetch(PDO::FETCH_ASSOC);
                 if ($b) {
+                    // Remove large base64 data to prevent exceeding Vercel 4.5MB payload limit
+                    unset($b['sample_photo']);
                     $stmtF = $conn->prepare("SELECT * FROM booking_files WHERE booking_id = :bid");
                     $stmtF->execute(['bid' => $b['id']]);
                     $b['attached_files'] = $stmtF->fetchAll(PDO::FETCH_ASSOC);
@@ -94,77 +96,78 @@ if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'client') {
             }
         }
         unset($n);
-    } catch (PDOException $e) {}
+    } catch (PDOException $e) {
+    }
 }
 ?>
 <script>
-const dbStatusNotificationsData = <?php echo json_encode($sync_db_notif); ?>;
+    const dbStatusNotificationsData = <?php echo json_encode($sync_db_notif); ?>;
 
-function renderGlobalNotifications() {
-    const badge = document.getElementById('notificationBadge');
-    const dropdownList = document.getElementById('notificationList');
-    const pageList = document.getElementById('pageNotificationList'); // Only on notifications page
-    const sidebarBadge = document.getElementById('sidebarNotificationBadge');
-    
-    function parseClientNotifDate(dtStr) {
-        if (!dtStr) return new Date();
-        let s = dtStr.replace(' ', 'T');
-        if (!s.endsWith('Z') && !s.includes('+')) {
-            s += 'Z';
-        }
-        return new Date(s);
-    }
+    function renderGlobalNotifications() {
+        const badge = document.getElementById('notificationBadge');
+        const dropdownList = document.getElementById('notificationList');
+        const pageList = document.getElementById('pageNotificationList'); // Only on notifications page
+        const sidebarBadge = document.getElementById('sidebarNotificationBadge');
 
-    let statusAlerts = dbStatusNotificationsData.map(n => {
-        return {
-            ...n,
-            isRead: n.is_read == 1,
-            sortTime: parseClientNotifDate(n.created_at).getTime()
-        };
-    });
-    
-    // Filter active alerts for unread counts
-    const activeStatusAlerts = statusAlerts.filter(a => !a.isRead);
-    const totalUnreadCount = activeStatusAlerts.length;
-    
-    // 1. UPDATE BADGES
-    if (badge) {
-        if (totalUnreadCount > 0) {
-            badge.innerText = totalUnreadCount;
-            badge.style.display = 'flex';
-        } else {
-            badge.style.display = 'none';
+        function parseClientNotifDate(dtStr) {
+            if (!dtStr) return new Date();
+            let s = dtStr.replace(' ', 'T');
+            if (!s.endsWith('Z') && !s.includes('+')) {
+                s += 'Z';
+            }
+            return new Date(s);
         }
-    }
-    
-    if (sidebarBadge) {
-        if (totalUnreadCount > 0) {
-            sidebarBadge.innerText = totalUnreadCount;
-            sidebarBadge.style.display = 'inline-block';
-        } else {
-            sidebarBadge.style.display = 'none';
+
+        let statusAlerts = dbStatusNotificationsData.map(n => {
+            return {
+                ...n,
+                isRead: n.is_read == 1,
+                sortTime: parseClientNotifDate(n.created_at).getTime()
+            };
+        });
+
+        // Filter active alerts for unread counts
+        const activeStatusAlerts = statusAlerts.filter(a => !a.isRead);
+        const totalUnreadCount = activeStatusAlerts.length;
+
+        // 1. UPDATE BADGES
+        if (badge) {
+            if (totalUnreadCount > 0) {
+                badge.innerText = totalUnreadCount;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
         }
-    }
-    
-    // Sort ALL alerts (newest first)
-    const allAlerts = statusAlerts.sort((a, b) => b.sortTime - a.sortTime);
-    const unreadAlerts = allAlerts.filter(a => !a.isRead);
-    
-    // 2. POPULATE TOPBAR DROPDOWN (Unread Only)
-    if (dropdownList) {
-        if (unreadAlerts.length === 0) {
-            dropdownList.innerHTML = '<div class="notification-empty">No active alerts</div>';
-        } else {
-            dropdownList.innerHTML = '';
-            unreadAlerts.forEach(n => {
-                const item = document.createElement('a');
-                item.className = 'notification-item unread';
-                item.href = 'javascript:void(0);';
-                
-                const created = parseClientNotifDate(n.created_at);
-                const timeStr = created.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
-                
-                item.innerHTML = `
+
+        if (sidebarBadge) {
+            if (totalUnreadCount > 0) {
+                sidebarBadge.innerText = totalUnreadCount;
+                sidebarBadge.style.display = 'inline-block';
+            } else {
+                sidebarBadge.style.display = 'none';
+            }
+        }
+
+        // Sort ALL alerts (newest first)
+        const allAlerts = statusAlerts.sort((a, b) => b.sortTime - a.sortTime);
+        const unreadAlerts = allAlerts.filter(a => !a.isRead);
+
+        // 2. POPULATE TOPBAR DROPDOWN (Unread Only)
+        if (dropdownList) {
+            if (unreadAlerts.length === 0) {
+                dropdownList.innerHTML = '<div class="notification-empty">No active alerts</div>';
+            } else {
+                dropdownList.innerHTML = '';
+                unreadAlerts.forEach(n => {
+                    const item = document.createElement('a');
+                    item.className = 'notification-item unread';
+                    item.href = 'javascript:void(0);';
+
+                    const created = parseClientNotifDate(n.created_at);
+                    const timeStr = created.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+
+                    item.innerHTML = `
                     <div class="notification-item-text">
                         <i class="fa-solid fa-circle-info" style="color: #3b82f6; margin-right: 5px;"></i>
                         <strong>Status Update</strong>: ${n.message}
@@ -173,53 +176,53 @@ function renderGlobalNotifications() {
                         ${timeStr}
                     </div>
                 `;
-                
-                item.onclick = function() {
-                    const formData = new FormData();
-                    formData.append('action', 'read_one');
-                    formData.append('id', n.id);
-                    
-                    fetch('mark_notifications_read.php', { method: 'POST', body: formData })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.success) {
-                            const orig = dbStatusNotificationsData.find(db_n => db_n.id === n.id);
-                            if (orig) orig.is_read = 1;
-                            renderGlobalNotifications();
+
+                    item.onclick = function () {
+                        const formData = new FormData();
+                        formData.append('action', 'read_one');
+                        formData.append('id', n.id);
+
+                        fetch('mark_notifications_read.php', { method: 'POST', body: formData })
+                            .then(r => r.json())
+                            .then(data => {
+                                if (data.success) {
+                                    const orig = dbStatusNotificationsData.find(db_n => db_n.id === n.id);
+                                    if (orig) orig.is_read = 1;
+                                    renderGlobalNotifications();
+                                }
+                            });
+
+                        if (typeof openViewModal === 'function' && n.booking_data) {
+                            openViewModal(n.booking_data);
+                            document.getElementById('notificationDropdown').classList.remove('show');
+                        } else {
+                            window.location.href = 'client_notifications.php';
                         }
-                    });
-                    
-                    if (typeof openViewModal === 'function' && n.booking_data) {
-                        openViewModal(n.booking_data);
-                        document.getElementById('notificationDropdown').classList.remove('show');
-                    } else {
-                        window.location.href = 'client_notifications.php';
-                    }
-                };
-                dropdownList.appendChild(item);
-            });
+                    };
+                    dropdownList.appendChild(item);
+                });
+            }
         }
-    }
-    
-    // 3. POPULATE FULL PAGE LIST (All alerts, read and unread)
-    if (pageList) {
-        if (allAlerts.length === 0) {
-            pageList.innerHTML = `
+
+        // 3. POPULATE FULL PAGE LIST (All alerts, read and unread)
+        if (pageList) {
+            if (allAlerts.length === 0) {
+                pageList.innerHTML = `
                 <div class="notifications-empty-state">
                     <i class="fa-solid fa-bell-slash"></i>
                     <h3>No Notification History</h3>
                     <p>You don't have any notifications yet.</p>
                 </div>`;
-        } else {
-            pageList.innerHTML = '';
-            allAlerts.forEach(n => {
-                const item = document.createElement('div');
-                item.className = 'notification-card-item' + (!n.isRead ? ' unread' : '');
-                
-                const created = parseClientNotifDate(n.created_at);
-                const timeStr = created.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
-                
-                item.innerHTML = `
+            } else {
+                pageList.innerHTML = '';
+                allAlerts.forEach(n => {
+                    const item = document.createElement('div');
+                    item.className = 'notification-card-item' + (!n.isRead ? ' unread' : '');
+
+                    const created = parseClientNotifDate(n.created_at);
+                    const timeStr = created.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+
+                    item.innerHTML = `
                     <div class="notification-card-content">
                         <div class="notification-card-icon ${n.isRead ? 'read' : 'unread'}" style="background: ${n.isRead ? '#f1f5f9' : '#eff6ff'}; color: ${n.isRead ? '#94a3b8' : '#3b82f6'};">
                             <i class="fa-solid fa-circle-info"></i>
@@ -235,75 +238,75 @@ function renderGlobalNotifications() {
                         <button class="view-btn-notif"><i class="fa-solid fa-eye"></i> View Details</button>
                     </div>
                 `;
-                item.onclick = function() {
-                    if (!n.isRead) {
-                        const formData = new FormData();
-                        formData.append('action', 'read_one');
-                        formData.append('id', n.id);
-                        fetch('mark_notifications_read.php', { method: 'POST', body: formData })
-                        .then(r => r.json())
-                        .then(data => {
-                            if (data.success) {
-                                const orig = dbStatusNotificationsData.find(db_n => db_n.id === n.id);
-                                if (orig) orig.is_read = 1;
-                                renderGlobalNotifications();
-                            }
-                        });
-                    }
-                    if (typeof openViewModal === 'function' && n.booking_data) {
-                        openViewModal(n.booking_data);
-                    }
-                };
-                pageList.appendChild(item);
+                    item.onclick = function () {
+                        if (!n.isRead) {
+                            const formData = new FormData();
+                            formData.append('action', 'read_one');
+                            formData.append('id', n.id);
+                            fetch('mark_notifications_read.php', { method: 'POST', body: formData })
+                                .then(r => r.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        const orig = dbStatusNotificationsData.find(db_n => db_n.id === n.id);
+                                        if (orig) orig.is_read = 1;
+                                        renderGlobalNotifications();
+                                    }
+                                });
+                        }
+                        if (typeof openViewModal === 'function' && n.booking_data) {
+                            openViewModal(n.booking_data);
+                        }
+                    };
+                    pageList.appendChild(item);
+                });
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        renderGlobalNotifications();
+
+        // Topbar dropdown toggle
+        const bellBtn = document.getElementById('notificationBellBtn');
+        if (bellBtn) {
+            bellBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                const dropdown = document.getElementById('notificationDropdown');
+                if (dropdown) dropdown.classList.toggle('show');
             });
         }
-    }
-}
 
-document.addEventListener('DOMContentLoaded', function() {
-    renderGlobalNotifications();
-    
-    // Topbar dropdown toggle
-    const bellBtn = document.getElementById('notificationBellBtn');
-    if (bellBtn) {
-        bellBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
+        const handleClearAll = function (e) {
+            if (e) e.stopPropagation();
+
+            const formData = new FormData();
+            formData.append('action', 'read_all');
+            fetch('mark_notifications_read.php', { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        dbStatusNotificationsData.forEach(n => n.is_read = 1);
+                        renderGlobalNotifications();
+                    }
+                });
+
             const dropdown = document.getElementById('notificationDropdown');
-            if (dropdown) dropdown.classList.toggle('show');
-        });
-    }
+            if (dropdown) dropdown.classList.remove('show');
+        };
 
-    const handleClearAll = function(e) {
-        if(e) e.stopPropagation();
-        
-        const formData = new FormData();
-        formData.append('action', 'read_all');
-        fetch('mark_notifications_read.php', { method: 'POST', body: formData })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                dbStatusNotificationsData.forEach(n => n.is_read = 1);
-                renderGlobalNotifications();
+        const clearBtn = document.getElementById('clearNotificationsBtn');
+        if (clearBtn) clearBtn.addEventListener('click', handleClearAll);
+
+        const pageClearBtn = document.getElementById('markAllReadPageBtn');
+        if (pageClearBtn) pageClearBtn.addEventListener('click', handleClearAll);
+
+        // Close dropdown clicking outside
+        document.addEventListener('click', function (e) {
+            const dropdown = document.getElementById('notificationDropdown');
+            const container = document.getElementById('notificationContainer');
+            if (dropdown && container && !container.contains(e.target)) {
+                dropdown.classList.remove('show');
             }
         });
-        
-        const dropdown = document.getElementById('notificationDropdown');
-        if (dropdown) dropdown.classList.remove('show');
-    };
-
-    const clearBtn = document.getElementById('clearNotificationsBtn');
-    if(clearBtn) clearBtn.addEventListener('click', handleClearAll);
-
-    const pageClearBtn = document.getElementById('markAllReadPageBtn');
-    if(pageClearBtn) pageClearBtn.addEventListener('click', handleClearAll);
-
-    // Close dropdown clicking outside
-    document.addEventListener('click', function(e) {
-        const dropdown = document.getElementById('notificationDropdown');
-        const container = document.getElementById('notificationContainer');
-        if (dropdown && container && !container.contains(e.target)) {
-            dropdown.classList.remove('show');
-        }
     });
-});
 </script>

@@ -28,6 +28,8 @@ if (isset($_SESSION['user_id'])) {
             $stmtB->execute(['bid' => $n['booking_id']]);
             $b = $stmtB->fetch(PDO::FETCH_ASSOC);
             if ($b) {
+                // Remove large base64 data to prevent exceeding Vercel 4.5MB payload limit
+                unset($b['sample_photo']);
                 $stmtF = $conn->prepare("SELECT * FROM booking_files WHERE booking_id = :bid");
                 $stmtF->execute(['bid' => $b['id']]);
                 $b['attached_files'] = $stmtF->fetchAll(PDO::FETCH_ASSOC);
@@ -52,6 +54,7 @@ try {
         $diff_hours = $diff_sec / 3600.0;
         
         if ($diff_hours <= 1.0) {
+            unset($b_notify['sample_photo']);
             $alert_type = $diff_sec < 0 ? 'past_due' : 'due_soon';
             $sync_time_alerts[] = [
                 'id' => $b_notify['id'],

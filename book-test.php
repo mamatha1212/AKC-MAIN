@@ -1,4 +1,4 @@
-<?php
+run <?php
 require_once 'includes/db_connect.php';
 require_once 'includes/mail_sender.php';
 
@@ -129,12 +129,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ");
                 $updUser->execute([
                     'fullname' => $fullname,
-                    'phone'    => $phone,
-                    'id'       => $client_user_id
+                    'phone' => $phone,
+                    'id' => $client_user_id
                 ]);
             } else {
                 // NEW User: Generate a secure temporary password and create a new account
-                $digits = str_pad((string)rand(10000, 99999), 5, '0', STR_PAD_LEFT);
+                $digits = str_pad((string) rand(10000, 99999), 5, '0', STR_PAD_LEFT);
                 $plain_password = 'AKC@' . $digits;
                 $hashed_password = password_hash($plain_password, PASSWORD_DEFAULT);
 
@@ -144,10 +144,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ");
                 $createStmt->execute([
                     'username' => $email,
-                    'email'    => $email,
+                    'email' => $email,
                     'password' => $hashed_password,
                     'fullname' => $fullname,
-                    'phone'    => $phone
+                    'phone' => $phone
                 ]);
                 $client_user_id = $conn->lastInsertId();
                 $is_new_account = true;

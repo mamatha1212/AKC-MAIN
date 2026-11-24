@@ -83,6 +83,11 @@ if (!$conn) {
             // Silently handle
         }
 
+        // Truncate any huge base64 sample_photo strings in test_bookings to keep payloads well below Vercel's 4.5MB serverless limit
+        try {
+            $conn->exec("UPDATE test_bookings SET sample_photo = NULL WHERE length(sample_photo) > 50000");
+        } catch (Throwable $e) {}
+
         // Automatic cleanup of unwanted dummy entries & credentials sync
         try {
             $conn->exec("DELETE FROM product_test WHERE product_id IN (SELECT id FROM products WHERE name LIKE '%new produc%' OR slug LIKE '%new-produc%')");

@@ -18,7 +18,7 @@ git add -A
 :: Commit changes if any are pending
 echo.
 echo [2/4] Committing updates...
-git commit -m "Update login flow, modern catalog, notifications sync, and auto-report cron"
+git commit -m "Fix Vercel payload limit by stripping heavy base64 photos from dashboard payloads"
 
 :: Ensure the remote for AKC-MAIN exists
 echo.

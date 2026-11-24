@@ -1,28 +1,25 @@
 @echo off
-title Deploy AKC to Vercel (akc-beta)
+title Deploy AKC to Vercel (Project: akc)
 cd /d "%~dp0"
-
-:: Check if nested inside AKC-main folder
-if exist "AKC-main\vercel.json" (
-    cd "AKC-main"
-)
 
 echo ========================================================
 echo             Deploying AKC to Vercel
 echo ========================================================
 echo.
-echo Target Project: akc-beta
-echo Target URL:     https://akc-beta.vercel.app
+echo Target Account: mamatha2
+echo Target Project: akc
+echo URL Dashboard:  https://vercel.com/mamatha2/akc/deployments
 echo.
 
 where npx >nul 2>&1
 if %ERRORLEVEL% equ 0 (
     echo [INFO] Running Vercel deployment...
     echo.
-    echo If prompted:
+    echo If prompted by Vercel:
     echo  - Set up and deploy? [Y]
+    echo  - Which scope? Select 'mamatha2'
     echo  - Link to existing project? [Y]
-    echo  - What is the name of the existing project? Enter: akc-beta
+    echo  - What is the name of the existing project? Enter: akc
     echo.
     npx --yes vercel --prod
     goto DONE
@@ -37,16 +34,15 @@ if %ERRORLEVEL% equ 0 (
 
 echo [ERROR] Neither Node.js (npx) nor Vercel CLI was found.
 echo.
-echo To deploy to Vercel, please do one of the following:
-echo   Option 1: Push your latest code changes to your GitHub repository
-echo             (Vercel will automatically build and deploy to akc-beta).
-echo.
-echo   Option 2: Install Node.js from https://nodejs.org
-echo             Then run this script again.
+echo Please run: npx vercel --prod from Command Prompt.
 echo.
 
 :DONE
 echo.
 echo ========================================================
+echo Deployment process complete.
+echo ========================================================
+echo.
+pause
 pause
 

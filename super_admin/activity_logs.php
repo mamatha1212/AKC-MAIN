@@ -28,34 +28,59 @@ try {
 
 function parseJsonCleanly($raw)
 {
-    if (empty($raw) || !is_string($raw))
-        return is_array($raw) ? $raw : null;
+    if (empty($raw)) return null;
+    if (is_array($raw)) return $raw;
+    if (!is_string($raw)) return null;
 
     $val = trim($raw);
-    // Loop up to 5 times to unwrap double/triple encoded JSON or stripslashes
-    for ($i = 0; $i < 5; $i++) {
+
+    // If it starts and ends with quotes, it might be a JSON-encoded string
+    for ($attempt = 0; $attempt < 6; $attempt++) {
         $decoded = json_decode($val, true);
-        if (json_last_error() === JSON_ERROR_NONE) {
-            if (is_array($decoded)) {
-                return $decoded;
-            } elseif (is_string($decoded)) {
-                $val = trim($decoded);
-                continue;
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return $decoded;
+        }
+
+        // Try replacing all double-backslashes with single backslashes or removing backslash before quotes
+        // Handles {\\"status\\": \\"Accept\\"} -> {"status": "Accept"}
+        $cleaned = str_replace(['\\\\"', '\\\\', '\"'], ['"', '\\', '"'], $val);
+        $decoded = json_decode($cleaned, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return $decoded;
+        }
+
+        // Try stripslashes
+        $stripped = stripslashes($val);
+        $decoded = json_decode($stripped, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return $decoded;
+        }
+
+        // If it starts with { and ends with }, regex extract key-value pairs as a bulletproof fallback!
+        if (str_starts_with($val, '{') && str_ends_with($val, '}')) {
+            // Match "key": "value" or \"key\": \"value\"
+            if (preg_match_all('/[\\\\"]*([a-zA-Z0-9_]+)[\\\\"]*\s*:\s*(?:[\\\\"]*([^\\\\",{}]+)[\\\\"]*|null)/i', $val, $matches, PREG_SET_ORDER)) {
+                $parsed = [];
+                foreach ($matches as $m) {
+                    $k = trim($m[1]);
+                    $v = isset($m[2]) ? trim($m[2]) : null;
+                    if ($v === 'null') $v = null;
+                    $parsed[$k] = $v;
+                }
+                if (!empty($parsed)) {
+                    return $parsed;
+                }
             }
         }
 
-        // Strip escaped slashes if present (e.g. {\"status\": ...})
-        $unescaped = stripslashes($val);
-        if ($unescaped !== $val) {
-            $val = $unescaped;
-            $decoded2 = json_decode($val, true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded2)) {
-                return $decoded2;
-            }
-        } else {
-            break;
+        // If $val was wrapped in outer quotes, unwrap and retry
+        if ((str_starts_with($val, '"') && str_ends_with($val, '"')) || (str_starts_with($val, "'") && str_ends_with($val, "'"))) {
+            $val = substr($val, 1, -1);
+            continue;
         }
+        break;
     }
+
     return null;
 }
 
@@ -353,6 +378,90 @@ function renderDiff($old_raw, $new_raw, $action = '', $module = '', $record_id =
             </div>
         </main>
     </div>
+
+<script>
+// Client-side parser to guarantee that even if raw strings or double-escaped JSON are delivered from older records, they format beautifully!
+document.addEventListener('DOMContentLoaded', function() {
+    function cleanJsonString(str) {
+        if (!str || typeof str !== 'string') return null;
+        let s = str.trim();
+        for (let i = 0; i < 4; i++) {
+            try {
+                let parsed = JSON.parse(s);
+                if (typeof parsed === 'object' && parsed !== null) return parsed;
+                if (typeof parsed === 'string') s = parsed.trim();
+            } catch (e) {
+                let unescaped = s.replace(/\\\\"/g, '"').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                try {
+                    let parsed2 = JSON.parse(unescaped);
+                    if (typeof parsed2 === 'object' && parsed2 !== null) return parsed2;
+                } catch(e2) {}
+                break;
+            }
+        }
+        if (s.startsWith('{') && s.endsWith('}')) {
+            let obj = {};
+            let re = /[\\"]*([a-zA-Z0-9_]+)[\\"]*\s*:\s*(?:[\\"]*([^\\",{}]+)[\\"]*|null)/gi;
+            let match;
+            while ((match = re.exec(s)) !== null) {
+                let key = match[1];
+                let val = match[2] === 'null' ? null : match[2];
+                obj[key] = val;
+            }
+            if (Object.keys(obj).length > 0) return obj;
+        }
+        return null;
+    }
+
+    function formatKey(k) {
+        return k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+
+    document.querySelectorAll('.diff-container').forEach(function(container) {
+        let text = container.textContent.trim();
+        if (text.startsWith('{') || text.includes('{\\') || text.includes('{"')) {
+            if (text.includes('->') || text.includes('→')) {
+                let parts = text.split(/->|→/);
+                if (parts.length === 2) {
+                    let oldObj = cleanJsonString(parts[0]);
+                    let newObj = cleanJsonString(parts[1]);
+                    if (oldObj || newObj) {
+                        oldObj = oldObj || {};
+                        newObj = newObj || {};
+                        let allKeys = Array.from(new Set([...Object.keys(oldObj), ...Object.keys(newObj)]));
+                        let html = '';
+                        allKeys.forEach(function(k) {
+                            if (k === 'sample_photo') return;
+                            let vOld = oldObj[k] || 'None';
+                            let vNew = newObj[k] || 'None';
+                            if (vOld !== vNew) {
+                                html += '<div class="diff-row change"><strong>' + formatKey(k) + ':</strong> <span class="old-val">' + vOld + '</span> &rarr; <span class="new-val">' + vNew + '</span></div>';
+                            }
+                        });
+                        if (html) {
+                            container.innerHTML = html;
+                            return;
+                        }
+                    }
+                }
+            }
+
+            let obj = cleanJsonString(text);
+            if (obj && typeof obj === 'object') {
+                let html = '';
+                for (let k in obj) {
+                    if (k === 'sample_photo') continue;
+                    let v = obj[k];
+                    html += '<div class="diff-row remove" style="margin-bottom:3px; padding:3px 8px; border-radius:4px;"><strong>' + formatKey(k) + ':</strong> ' + (v !== null ? v : 'null') + '</div>';
+                }
+                if (html) {
+                    container.innerHTML = html;
+                }
+            }
+        }
+    });
+});
+</script>
 </body>
 
 </html>

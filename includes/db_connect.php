@@ -136,8 +136,13 @@ if (!$conn) {
         } catch (Throwable $e) {
         }
 
-        // Populate meaningful data in existing admin_activity_logs where old_data and new_data are empty
+        // Populate meaningful data in existing admin_activity_logs where old_data and new_data are empty or escaped
         try {
+            // Clean escaped slashes in existing rows
+            $conn->exec("UPDATE admin_activity_logs SET old_data = replace(old_data, '\\\\\"', '\"'), new_data = replace(new_data, '\\\\\"', '\"') WHERE old_data LIKE '%\\\\\"%' OR new_data LIKE '%\\\\\"%'");
+            $conn->exec("UPDATE admin_activity_logs SET old_data = replace(old_data, '\\\"', '\"'), new_data = replace(new_data, '\\\"', '\"') WHERE old_data LIKE '%\\\"%' OR new_data LIKE '%\\\"%'");
+            $conn->exec("UPDATE admin_activity_logs SET old_data = replace(old_data, '\\\\', ''), new_data = replace(new_data, '\\\\', '') WHERE old_data LIKE '%\\\\%' OR new_data LIKE '%\\\\%'");
+
             // Update logs for bookings updates (e.g. record 33, 34)
             $conn->exec("UPDATE admin_activity_logs SET 
                 old_data = '{\"status\":\"Pending\"}', 

@@ -8,7 +8,7 @@ echo ========================================================
 echo.
 
 git add -A
-git commit -m "Fix escaped JSON string parsing in Activity Logs to render clean attribute diffs"
+git commit -m "Add dual PHP & JS un-escaper for Activity Logs to cleanly format before/after attributes"
 git push -u akc-main main --force
 
 echo.

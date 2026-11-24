@@ -8,7 +8,7 @@ echo ========================================================
 echo.
 
 git add -A
-git commit -m "Fix activity logs diff display, auto-populate attribute changes, and log updates/deletions"
+git commit -m "Enhance activity logs display: fallback on action details, status transitions, and deletion info"
 git push -u akc-main main --force
 
 echo.

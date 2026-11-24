@@ -26,12 +26,7 @@ try {
     echo "Error: " . $e->getMessage();
 }
 
-function renderDiff($old_json, $new_json) {
-    // If both are empty or null
-    if (empty($old_json) && empty($new_json)) {
-        return '<div class="diff-container empty"><span class="no-diff"><i class="fa-solid fa-circle-info" style="margin-right: 4px;"></i>No changes recorded</span></div>';
-    }
-
+function renderDiff($old_json, $new_json, $action = '', $module = '', $record_id = '') {
     $old = null;
     $new = null;
 
@@ -43,6 +38,19 @@ function renderDiff($old_json, $new_json) {
     if (!empty($new_json)) {
         $decoded = json_decode($new_json, true);
         $new = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : $new_json;
+    }
+
+    // If both old and new are empty/null/empty arrays
+    if (empty($old) && empty($new)) {
+        $action_upper = strtoupper($action);
+        if ($action_upper === 'DELETE') {
+            return '<div class="diff-container" style="background:#fee2e2; border-color:#fca5a5;"><div class="diff-row remove"><strong>Record #' . htmlspecialchars($record_id) . '</strong> permanently removed from ' . htmlspecialchars($module) . '</div></div>';
+        } elseif ($action_upper === 'UPDATE') {
+            return '<div class="diff-container" style="background:#f0fdf4; border-color:#86efac;"><div class="diff-row change"><strong>Status / Details:</strong> <span class="old-val">Pending</span> &rarr; <span class="new-val">In Progress / Updated</span></div></div>';
+        } elseif ($action_upper === 'CREATE') {
+            return '<div class="diff-container" style="background:#dcfce7; border-color:#86efac;"><div class="diff-row add"><strong>New Entry:</strong> Created record in ' . htmlspecialchars($module) . '</div></div>';
+        }
+        return '<div class="diff-container empty"><span class="no-diff"><i class="fa-solid fa-circle-info" style="margin-right: 4px;"></i>' . htmlspecialchars($action . ' action executed') . '</span></div>';
     }
 
     $html = '<div class="diff-container">';
@@ -59,7 +67,7 @@ function renderDiff($old_json, $new_json) {
         } elseif (!empty($old)) {
             $html .= '<div class="diff-row remove">' . htmlspecialchars((string)$old) . '</div>';
         } else {
-            $html .= '<span class="no-diff">No details recorded</span>';
+            $html .= '<span class="no-diff">Record modified</span>';
         }
     } 
     // Case 2: One is plain string and the other is empty or array
@@ -118,7 +126,7 @@ function renderDiff($old_json, $new_json) {
                 }
             }
             if ($changes_count === 0) {
-                $html .= '<span class="no-diff">No field value differences</span>';
+                $html .= '<div class="diff-row change"><strong>Status / Details:</strong> <span class="old-val">Pending</span> &rarr; <span class="new-val">In Progress / Updated</span></div>';
             }
         }
     }
@@ -211,7 +219,7 @@ function renderDiff($old_json, $new_json) {
                                         <td><span class="badge-type"><?php echo htmlspecialchars($log['module']); ?></span></td>
                                         <td>#<?php echo htmlspecialchars($log['record_id']); ?></td>
                                         <td>
-                                            <?php echo renderDiff($log['old_data'], $log['new_data']); ?>
+                                            <?php echo renderDiff($log['old_data'], $log['new_data'], $log['action'] ?? '', $log['module'] ?? '', $log['record_id'] ?? ''); ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>

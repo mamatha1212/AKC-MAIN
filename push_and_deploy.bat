@@ -3,12 +3,12 @@ title Push Changes and Deploy to Vercel
 cd /d "%~dp0"
 
 echo ========================================================
-echo  [1/2] Pushing Clean Diff Parser to GitHub (AKC-MAIN)
+echo  [1/2] Pushing Clean Compact Summary & Modal to GitHub
 echo ========================================================
 echo.
 
 git add -A
-git commit -m "Fix escaped JSON string parsing in Activity Logs to render clean attribute diffs"
+git commit -m "Replace tall raw log list with compact summary pill and View Details modal popup"
 git push -u akc-main main --force
 
 echo.

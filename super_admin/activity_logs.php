@@ -89,82 +89,80 @@ function renderDiff($old_raw, $new_raw, $action = '', $module = '', $record_id =
     $old = parseJsonCleanly($old_raw);
     $new = parseJsonCleanly($new_raw);
 
+    $action_upper = strtoupper($action);
+
     // If both failed JSON parsing or are empty
     if (empty($old) && empty($new)) {
-        // Check if there was raw string that wasn't JSON
-        $old_str = is_string($old_raw) ? trim($old_raw) : '';
-        $new_str = is_string($new_raw) ? trim($new_raw) : '';
-
-        if (!empty($old_str) && !empty($new_str) && $old_str !== $new_str) {
-            return '<div class="diff-container"><div class="diff-row change"><span class="old-val">' . htmlspecialchars($old_str) . '</span> &rarr; <span class="new-val">' . htmlspecialchars($new_str) . '</span></div></div>';
-        }
-
-        $action_upper = strtoupper($action);
         if ($action_upper === 'DELETE') {
-            return '<div class="diff-container" style="background:#fee2e2; border-color:#fca5a5;"><div class="diff-row remove"><strong>Record #' . htmlspecialchars($record_id) . '</strong> permanently removed from ' . htmlspecialchars($module) . '</div></div>';
+            return '<div class="diff-summary-badge delete"><i class="fa-solid fa-trash-can"></i> Booking #' . htmlspecialchars($record_id) . ' Deleted</div>';
         } elseif ($action_upper === 'UPDATE') {
-            return '<div class="diff-container" style="background:#f0fdf4; border-color:#86efac;"><div class="diff-row change"><strong>Status / Details:</strong> <span class="old-val">Pending</span> &rarr; <span class="new-val">In Progress / Updated</span></div></div>';
+            return '<div class="diff-summary-badge update"><i class="fa-solid fa-pen-to-square"></i> Booking #' . htmlspecialchars($record_id) . ' Updated</div>';
         } elseif ($action_upper === 'CREATE') {
-            return '<div class="diff-container" style="background:#dcfce7; border-color:#86efac;"><div class="diff-row add"><strong>New Entry:</strong> Created record in ' . htmlspecialchars($module) . '</div></div>';
+            return '<div class="diff-summary-badge create"><i class="fa-solid fa-circle-plus"></i> New Booking #' . htmlspecialchars($record_id) . '</div>';
         }
-        return '<div class="diff-container empty"><span class="no-diff"><i class="fa-solid fa-circle-info" style="margin-right: 4px;"></i>' . htmlspecialchars($action . ' action executed') . '</span></div>';
+        return '<div class="diff-summary-badge neutral"><i class="fa-solid fa-circle-info"></i> ' . htmlspecialchars($action . ' #' . $record_id) . '</div>';
     }
 
     $old = is_array($old) ? $old : [];
     $new = is_array($new) ? $new : [];
 
-    $html = '<div class="diff-container">';
+    // Construct modal payload safely
+    $detailsData = !empty($new) ? $new : $old;
+    $detailsJson = htmlspecialchars(json_encode($detailsData), ENT_QUOTES, 'UTF-8');
 
-    if (empty($old) && !empty($new)) {
-        // Created / added records
-        foreach ($new as $k => $v) {
-            if ($k === 'sample_photo' && strlen((string) $v) > 50)
-                continue; // Skip raw photo strings
-            if (is_array($v))
-                $v = json_encode($v);
+    // Case 1: CREATE (New Booking)
+    if ($action_upper === 'CREATE' || (empty($old) && !empty($new))) {
+        $sampleName = $new['sample_type'] ?? ($new['sample_desc'] ?? 'Test Sample');
+        $html = '<div class="diff-item-compact">';
+        $html .= '<span class="diff-pill create"><i class="fa-solid fa-file-circle-plus"></i> New Booking: ' . htmlspecialchars($sampleName) . '</span>';
+        $html .= ' <button type="button" class="btn-view-details" onclick="openDetailsModal(\'New Booking Details (# ' . htmlspecialchars($record_id) . ')\', this)" data-details=\'' . $detailsJson . '\'><i class="fa-solid fa-eye"></i> View Details</button>';
+        $html .= '</div>';
+        return $html;
+    }
+
+    // Case 2: DELETE (Deleted Booking)
+    if ($action_upper === 'DELETE' || (!empty($old) && empty($new))) {
+        $sampleName = $old['sample_type'] ?? ($old['fullname'] ?? 'Booking #' . $record_id);
+        $html = '<div class="diff-item-compact">';
+        $html .= '<span class="diff-pill delete"><i class="fa-solid fa-trash-can"></i> Deleted: ' . htmlspecialchars($sampleName) . '</span>';
+        $html .= ' <button type="button" class="btn-view-details" onclick="openDetailsModal(\'Deleted Record Details (# ' . htmlspecialchars($record_id) . ')\', this)" data-details=\'' . $detailsJson . '\'><i class="fa-solid fa-eye"></i> View Details</button>';
+        $html .= '</div>';
+        return $html;
+    }
+
+    // Case 3: UPDATE (Status / Estimated Time / Reason)
+    $all_keys = array_unique(array_merge(array_keys($old), array_keys($new)));
+    $diff_html = '';
+    $diff_count = 0;
+
+    foreach ($all_keys as $k) {
+        if ($k === 'sample_photo') continue;
+        $v_old = $old[$k] ?? null;
+        $v_new = $new[$k] ?? null;
+        if (is_array($v_old)) $v_old = json_encode($v_old);
+        if (is_array($v_new)) $v_new = json_encode($v_new);
+
+        if ((string)$v_old !== (string)$v_new) {
+            $diff_count++;
             $label = ucwords(str_replace('_', ' ', $k));
-            $html .= '<div class="diff-row add"><strong>' . htmlspecialchars($label) . ':</strong> ' . htmlspecialchars((string) ($v ?? 'null')) . '</div>';
-        }
-    } elseif (!empty($old) && empty($new)) {
-        // Deleted records
-        foreach ($old as $k => $v) {
-            if ($k === 'sample_photo' && strlen((string) $v) > 50)
-                continue; // Skip raw photo strings
-            if (is_array($v))
-                $v = json_encode($v);
-            $label = ucwords(str_replace('_', ' ', $k));
-            $html .= '<div class="diff-row remove"><strong>' . htmlspecialchars($label) . ':</strong> ' . htmlspecialchars((string) ($v ?? 'null')) . '</div>';
-        }
-    } else {
-        // Updated record diff
-        $all_keys = array_unique(array_merge(array_keys($old), array_keys($new)));
-        $changes_count = 0;
-        foreach ($all_keys as $k) {
-            if ($k === 'sample_photo')
-                continue; // Don't compare raw photos
-            $v_old = $old[$k] ?? null;
-            $v_new = $new[$k] ?? null;
-
-            if (is_array($v_old))
-                $v_old = json_encode($v_old);
-            if (is_array($v_new))
-                $v_new = json_encode($v_new);
-
-            if ((string) $v_old !== (string) $v_new) {
-                $changes_count++;
-                $label = ucwords(str_replace('_', ' ', $k));
-                $html .= '<div class="diff-row change"><strong>' . htmlspecialchars($label) . ':</strong> ';
-                $html .= '<span class="old-val">' . htmlspecialchars((string) ($v_old ?? 'null')) . '</span> &rarr; ';
-                $html .= '<span class="new-val">' . htmlspecialchars((string) ($v_new ?? 'null')) . '</span>';
-                $html .= '</div>';
-            }
-        }
-        if ($changes_count === 0) {
-            $html .= '<div class="diff-row change"><strong>Status / Details:</strong> <span class="old-val">Pending</span> &rarr; <span class="new-val">In Progress / Updated</span></div>';
+            $diff_html .= '<div class="diff-change-line"><strong>' . htmlspecialchars($label) . ':</strong> ';
+            $diff_html .= '<span class="old-val">' . htmlspecialchars((string)($v_old ?? 'None')) . '</span> &rarr; ';
+            $diff_html .= '<span class="new-val">' . htmlspecialchars((string)($v_new ?? 'None')) . '</span>';
+            $diff_html .= '</div>';
         }
     }
 
+    if ($diff_count === 0) {
+        $diff_html = '<div class="diff-change-line"><span class="old-val">Pending</span> &rarr; <span class="new-val">In Progress / Updated</span></div>';
+    }
+
+    $html = '<div class="diff-item-compact">';
+    $html .= $diff_html;
+    if (!empty($new) && count($new) > 2) {
+        $html .= ' <button type="button" class="btn-view-details" onclick="openDetailsModal(\'Booking Update Details (# ' . htmlspecialchars($record_id) . ')\', this)" data-details=\'' . $detailsJson . '\' style="margin-top: 4px;"><i class="fa-solid fa-eye"></i> View Details</button>';
+    }
     $html .= '</div>';
+
     return $html;
 }
 ?>
@@ -262,6 +260,161 @@ function renderDiff($old_raw, $new_raw, $action = '', $module = '', $record_id =
         .admin-name {
             font-weight: 600;
             color: #3b82f6;
+        }
+
+        /* Compact diff styles & View Details button */
+        .diff-item-compact {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 13px;
+        }
+        .diff-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .diff-pill.create {
+            background: #dcfce7;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+        }
+        .diff-pill.delete {
+            background: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+        }
+        .diff-summary-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .diff-summary-badge.delete { background: #fee2e2; color: #b91c1c; }
+        .diff-summary-badge.update { background: #eff6ff; color: #1d4ed8; }
+        .diff-summary-badge.create { background: #dcfce7; color: #15803d; }
+        .diff-summary-badge.neutral { background: #f1f5f9; color: #475569; }
+
+        .btn-view-details {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #3b82f6;
+            color: #ffffff;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
+        }
+        .btn-view-details:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        .diff-change-line {
+            font-size: 12px;
+            padding: 2px 0;
+            color: #1e293b;
+        }
+
+        /* Modal Styles */
+        .details-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 99999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .details-modal {
+            background: #ffffff;
+            border-radius: 12px;
+            max-width: 650px;
+            width: 100%;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            max-height: 85vh;
+            animation: modalFadeIn 0.2s ease-out;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .details-modal-header {
+            padding: 16px 20px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .details-modal-header h4 {
+            margin: 0;
+            font-size: 16px;
+            color: #0f172a;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .details-modal-close {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 6px;
+            line-height: 1;
+        }
+        .details-modal-close:hover {
+            color: #ef4444;
+            background: #fee2e2;
+        }
+        .details-modal-body {
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .details-table th, .details-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 13px;
+            text-align: left;
+        }
+        .details-table th {
+            width: 35%;
+            color: #64748b;
+            font-weight: 600;
+            background: #f8fafc;
+        }
+        .details-table td {
+            color: #1e293b;
+            font-weight: 500;
         }
     </style>
 </head>
@@ -379,87 +532,70 @@ function renderDiff($old_raw, $new_raw, $action = '', $module = '', $record_id =
         </main>
     </div>
 
+    <!-- Modal for viewing full booking / record details -->
+    <div id="detailsModalOverlay" class="details-modal-overlay" onclick="closeDetailsModal(event)">
+        <div class="details-modal" onclick="event.stopPropagation()">
+            <div class="details-modal-header">
+                <h4 id="detailsModalTitle"><i class="fa-solid fa-file-lines" style="color:#3b82f6;"></i> Record Details</h4>
+                <button type="button" class="details-modal-close" onclick="closeDetailsModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="details-modal-body" id="detailsModalBody">
+                <!-- Injected via JavaScript -->
+            </div>
+        </div>
+    </div>
+
 <script>
-// Client-side parser to guarantee that even if raw strings or double-escaped JSON are delivered from older records, they format beautifully!
-document.addEventListener('DOMContentLoaded', function() {
-    function cleanJsonString(str) {
-        if (!str || typeof str !== 'string') return null;
-        let s = str.trim();
-        for (let i = 0; i < 4; i++) {
-            try {
-                let parsed = JSON.parse(s);
-                if (typeof parsed === 'object' && parsed !== null) return parsed;
-                if (typeof parsed === 'string') s = parsed.trim();
-            } catch (e) {
-                let unescaped = s.replace(/\\\\"/g, '"').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-                try {
-                    let parsed2 = JSON.parse(unescaped);
-                    if (typeof parsed2 === 'object' && parsed2 !== null) return parsed2;
-                } catch(e2) {}
-                break;
-            }
-        }
-        if (s.startsWith('{') && s.endsWith('}')) {
-            let obj = {};
-            let re = /[\\"]*([a-zA-Z0-9_]+)[\\"]*\s*:\s*(?:[\\"]*([^\\",{}]+)[\\"]*|null)/gi;
-            let match;
-            while ((match = re.exec(s)) !== null) {
-                let key = match[1];
-                let val = match[2] === 'null' ? null : match[2];
-                obj[key] = val;
-            }
-            if (Object.keys(obj).length > 0) return obj;
-        }
-        return null;
+function formatKeyName(k) {
+    return k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+function openDetailsModal(title, btn) {
+    const rawData = btn.getAttribute('data-details');
+    const modalTitle = document.getElementById('detailsModalTitle');
+    const modalBody = document.getElementById('detailsModalBody');
+    const modalOverlay = document.getElementById('detailsModalOverlay');
+
+    modalTitle.innerHTML = '<i class="fa-solid fa-file-circle-check" style="color:#3b82f6;"></i> ' + title;
+
+    let data = null;
+    try {
+        data = JSON.parse(rawData);
+    } catch(e) {
+        data = rawData;
     }
 
-    function formatKey(k) {
-        return k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    if (data && typeof data === 'object') {
+        let rows = '';
+        for (const [k, v] of Object.entries(data)) {
+            if (k === 'sample_photo') {
+                if (v && v.length < 200 && (v.endsWith('.jpg') || v.endsWith('.png') || v.endsWith('.webp') || v.endsWith('.jpeg'))) {
+                    rows += `<tr><th>Sample Photo</th><td><img src="../assets/uploads/${v}" style="max-height:80px; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1);" onerror="this.style.display='none'"></td></tr>`;
+                }
+                continue;
+            }
+            let displayVal = (v === null || v === undefined || v === '') ? '<span style="color:#94a3b8; font-style:italic;">None</span>' : v;
+            rows += `<tr><th>${formatKeyName(k)}</th><td>${displayVal}</td></tr>`;
+        }
+        modalBody.innerHTML = `<table class="details-table">${rows}</table>`;
+    } else {
+        modalBody.innerHTML = `<div style="padding:15px; color:#475569;">${data || 'No further details available.'}</div>`;
     }
 
-    document.querySelectorAll('.diff-container').forEach(function(container) {
-        let text = container.textContent.trim();
-        if (text.startsWith('{') || text.includes('{\\') || text.includes('{"')) {
-            if (text.includes('->') || text.includes('→')) {
-                let parts = text.split(/->|→/);
-                if (parts.length === 2) {
-                    let oldObj = cleanJsonString(parts[0]);
-                    let newObj = cleanJsonString(parts[1]);
-                    if (oldObj || newObj) {
-                        oldObj = oldObj || {};
-                        newObj = newObj || {};
-                        let allKeys = Array.from(new Set([...Object.keys(oldObj), ...Object.keys(newObj)]));
-                        let html = '';
-                        allKeys.forEach(function(k) {
-                            if (k === 'sample_photo') return;
-                            let vOld = oldObj[k] || 'None';
-                            let vNew = newObj[k] || 'None';
-                            if (vOld !== vNew) {
-                                html += '<div class="diff-row change"><strong>' + formatKey(k) + ':</strong> <span class="old-val">' + vOld + '</span> &rarr; <span class="new-val">' + vNew + '</span></div>';
-                            }
-                        });
-                        if (html) {
-                            container.innerHTML = html;
-                            return;
-                        }
-                    }
-                }
-            }
+    modalOverlay.style.display = 'flex';
+}
 
-            let obj = cleanJsonString(text);
-            if (obj && typeof obj === 'object') {
-                let html = '';
-                for (let k in obj) {
-                    if (k === 'sample_photo') continue;
-                    let v = obj[k];
-                    html += '<div class="diff-row remove" style="margin-bottom:3px; padding:3px 8px; border-radius:4px;"><strong>' + formatKey(k) + ':</strong> ' + (v !== null ? v : 'null') + '</div>';
-                }
-                if (html) {
-                    container.innerHTML = html;
-                }
-            }
-        }
-    });
+function closeDetailsModal(e) {
+    const modalOverlay = document.getElementById('detailsModalOverlay');
+    if (modalOverlay) {
+        modalOverlay.style.display = 'none';
+    }
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeDetailsModal();
+    }
 });
 </script>
 </body>

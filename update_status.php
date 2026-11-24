@@ -195,6 +195,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         'dt' => $current_now
                     ]);
                 }
+
+                // Insert into admin_activity_logs for Super Admin audit tracking
+                if (isset($_SESSION['user_id'])) {
+                    try {
+                        $oldLogData = ['status' => $old_label];
+                        $newLogData = ['status' => $new_label];
+                        if (!empty($formatted_time)) {
+                            $newLogData['estimated_time'] = $formatted_time;
+                        }
+                        if (!empty($rejection_reason)) {
+                            $newLogData['rejection_reason'] = $rejection_reason;
+                        }
+                        $stmtAct = $conn->prepare("INSERT INTO admin_activity_logs (admin_id, action, module, record_id, old_data, new_data, created_at) VALUES (:admin_id, 'UPDATE', 'BOOKINGS', :rec_id, :old_data, :new_data, datetime('now'))");
+                        $stmtAct->execute([
+                            'admin_id' => $_SESSION['user_id'],
+                            'rec_id' => $booking_id,
+                            'old_data' => json_encode($oldLogData),
+                            'new_data' => json_encode($newLogData)
+                        ]);
+                    } catch (Throwable $e) {}
+                }
             }
             echo json_encode(['success' => true]);
         } else {

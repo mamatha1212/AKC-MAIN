@@ -27,38 +27,98 @@ try {
 }
 
 function renderDiff($old_json, $new_json) {
-    $old = $old_json ? json_decode($old_json, true) : [];
-    $new = $new_json ? json_decode($new_json, true) : [];
-    
+    // If both are empty or null
+    if (empty($old_json) && empty($new_json)) {
+        return '<div class="diff-container empty"><span class="no-diff"><i class="fa-solid fa-circle-info" style="margin-right: 4px;"></i>No changes recorded</span></div>';
+    }
+
+    $old = null;
+    $new = null;
+
+    if (!empty($old_json)) {
+        $decoded = json_decode($old_json, true);
+        $old = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : $old_json;
+    }
+
+    if (!empty($new_json)) {
+        $decoded = json_decode($new_json, true);
+        $new = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : $new_json;
+    }
+
     $html = '<div class="diff-container">';
     
-    if (empty($old) && !empty($new)) {
-        // Create
+    // Case 1: Plain text or string values (not JSON array/object)
+    if (!is_array($old) && !is_array($new)) {
+        if (!empty($old) && !empty($new) && $old !== $new) {
+            $html .= '<div class="diff-row change">';
+            $html .= '<span class="old-val">' . htmlspecialchars((string)$old) . '</span> &rarr; ';
+            $html .= '<span class="new-val">' . htmlspecialchars((string)$new) . '</span>';
+            $html .= '</div>';
+        } elseif (!empty($new)) {
+            $html .= '<div class="diff-row add">' . htmlspecialchars((string)$new) . '</div>';
+        } elseif (!empty($old)) {
+            $html .= '<div class="diff-row remove">' . htmlspecialchars((string)$old) . '</div>';
+        } else {
+            $html .= '<span class="no-diff">No details recorded</span>';
+        }
+    } 
+    // Case 2: One is plain string and the other is empty or array
+    elseif (!is_array($old) && is_array($new)) {
+        if (!empty($old)) {
+            $html .= '<div class="diff-row remove"><strong>Old:</strong> ' . htmlspecialchars((string)$old) . '</div>';
+        }
         foreach ($new as $k => $v) {
             if (is_array($v)) $v = json_encode($v);
-            $html .= '<div class="diff-row add"><strong>' . $k . ':</strong> ' . htmlspecialchars((string)$v) . '</div>';
+            $html .= '<div class="diff-row add"><strong>' . htmlspecialchars($k) . ':</strong> ' . htmlspecialchars((string)$v) . '</div>';
         }
-    } elseif (!empty($old) && empty($new)) {
-        // Delete
+    }
+    elseif (is_array($old) && !is_array($new)) {
         foreach ($old as $k => $v) {
             if (is_array($v)) $v = json_encode($v);
-            $html .= '<div class="diff-row remove"><strong>' . $k . ':</strong> ' . htmlspecialchars((string)$v) . '</div>';
+            $html .= '<div class="diff-row remove"><strong>' . htmlspecialchars($k) . ':</strong> ' . htmlspecialchars((string)$v) . '</div>';
         }
-    } else {
-        // Update
-        $all_keys = array_unique(array_merge(array_keys($old ?: []), array_keys($new ?: [])));
-        foreach ($all_keys as $k) {
-            $v_old = $old[$k] ?? null;
-            $v_new = $new[$k] ?? null;
-            
-            if (is_array($v_old)) $v_old = json_encode($v_old);
-            if (is_array($v_new)) $v_new = json_encode($v_new);
-            
-            if ($v_old != $v_new) {
-                $html .= '<div class="diff-row change"><strong>' . $k . ':</strong> ';
-                $html .= '<span class="old-val">' . htmlspecialchars((string)$v_old) . '</span> &rarr; ';
-                $html .= '<span class="new-val">' . htmlspecialchars((string)$v_new) . '</span>';
-                $html .= '</div>';
+        if (!empty($new)) {
+            $html .= '<div class="diff-row add"><strong>New:</strong> ' . htmlspecialchars((string)$new) . '</div>';
+        }
+    }
+    // Case 3: Both are structured arrays
+    else {
+        $old = is_array($old) ? $old : [];
+        $new = is_array($new) ? $new : [];
+
+        if (empty($old) && !empty($new)) {
+            // Created record
+            foreach ($new as $k => $v) {
+                if (is_array($v)) $v = json_encode($v);
+                $html .= '<div class="diff-row add"><strong>' . htmlspecialchars($k) . ':</strong> ' . htmlspecialchars((string)$v) . '</div>';
+            }
+        } elseif (!empty($old) && empty($new)) {
+            // Deleted record
+            foreach ($old as $k => $v) {
+                if (is_array($v)) $v = json_encode($v);
+                $html .= '<div class="diff-row remove"><strong>' . htmlspecialchars($k) . ':</strong> ' . htmlspecialchars((string)$v) . '</div>';
+            }
+        } else {
+            // Updated record
+            $all_keys = array_unique(array_merge(array_keys($old), array_keys($new)));
+            $changes_count = 0;
+            foreach ($all_keys as $k) {
+                $v_old = $old[$k] ?? null;
+                $v_new = $new[$k] ?? null;
+                
+                if (is_array($v_old)) $v_old = json_encode($v_old);
+                if (is_array($v_new)) $v_new = json_encode($v_new);
+                
+                if ((string)$v_old !== (string)$v_new) {
+                    $changes_count++;
+                    $html .= '<div class="diff-row change"><strong>' . htmlspecialchars($k) . ':</strong> ';
+                    $html .= '<span class="old-val">' . htmlspecialchars((string)$v_old) . '</span> &rarr; ';
+                    $html .= '<span class="new-val">' . htmlspecialchars((string)$v_new) . '</span>';
+                    $html .= '</div>';
+                }
+            }
+            if ($changes_count === 0) {
+                $html .= '<span class="no-diff">No field value differences</span>';
             }
         }
     }
@@ -82,11 +142,13 @@ function renderDiff($old_json, $new_json) {
         .log-action-UPDATE { color: #3b82f6; font-weight: bold; }
         .log-action-DELETE { color: #ef4444; font-weight: bold; }
         .diff-container { font-family: monospace; font-size: 12px; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; }
-        .diff-row { padding: 4px; border-bottom: 1px solid #f1f5f9; }
+        .diff-container.empty { background: transparent; border: 1px dashed #cbd5e1; padding: 6px 12px; }
+        .no-diff { color: #94a3b8; font-style: italic; font-size: 12px; font-family: 'Montserrat', sans-serif; }
+        .diff-row { padding: 4px; border-bottom: 1px solid #f1f5f9; word-break: break-all; }
         .diff-row:last-child { border-bottom: none; }
-        .diff-row.add { color: #166534; background-color: #dcfce7; }
-        .diff-row.remove { color: #991b1b; background-color: #fee2e2; }
-        .diff-row.change { color: #1e293b; }
+        .diff-row.add { color: #166534; background-color: #dcfce7; border-radius: 4px; padding: 4px 8px; margin-bottom: 3px; }
+        .diff-row.remove { color: #991b1b; background-color: #fee2e2; border-radius: 4px; padding: 4px 8px; margin-bottom: 3px; }
+        .diff-row.change { color: #1e293b; padding: 4px 6px; }
         .old-val { text-decoration: line-through; color: #ef4444; margin-right: 5px; }
         .new-val { color: #10b981; font-weight: bold; }
         .admin-name { font-weight: 600; color: #3b82f6; }

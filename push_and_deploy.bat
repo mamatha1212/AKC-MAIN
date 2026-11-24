@@ -3,12 +3,12 @@ title Push to GitHub and Deploy to Vercel
 cd /d "%~dp0"
 
 echo ========================================================
-echo   [1/2] Pushing Payload Fix to GitHub (mamatha1212/AKC-MAIN)
+echo   [1/2] Pushing Activity Logs & Payload Fix to GitHub
 echo ========================================================
 echo.
 
 git add -A
-git commit -m "Fix Vercel payload limit: strip heavy base64 photos from notifications and database on Vercel"
+git commit -m "Fix activity logs diff display, auto-populate attribute changes, and log updates/deletions"
 git push -u akc-main main --force
 
 echo.
@@ -32,7 +32,7 @@ if %ERRORLEVEL% equ 0 (
 :DONE
 echo.
 echo ========================================================
-echo   COMPLETE! Please refresh https://akc-beta.vercel.app/super_admin/dashboard.php
+echo   COMPLETE! Refresh https://akc-beta.vercel.app/super_admin/activity_logs.php
 echo ========================================================
 echo.
 pause

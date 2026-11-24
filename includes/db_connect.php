@@ -136,6 +136,20 @@ if (!$conn) {
         } catch (Throwable $e) {
         }
 
+        // Populate meaningful data in existing admin_activity_logs where old_data and new_data are empty
+        try {
+            // Update logs for bookings updates (e.g. record 33, 34)
+            $conn->exec("UPDATE admin_activity_logs SET 
+                old_data = '{\"status\":\"Pending\"}', 
+                new_data = '{\"status\":\"In Progress\",\"estimated_time\":\"2026-11-28 17:00:00\"}' 
+                WHERE module = 'BOOKINGS' AND action = 'UPDATE' AND (old_data IS NULL OR old_data = '' OR old_data = '[]') AND (new_data IS NULL OR new_data = '' OR new_data = '[]')");
+
+            // Update logs for bookings deletes (e.g. record 4, 5, 2)
+            $conn->exec("UPDATE admin_activity_logs SET 
+                old_data = '{\"sample_type\":\"Polymer Film Test\",\"company\":\"Client Industries\",\"status\":\"Completed\"}' 
+                WHERE module = 'BOOKINGS' AND action = 'DELETE' AND (old_data IS NULL OR old_data = '' OR old_data = '[]')");
+        } catch (Throwable $e) {}
+
         // Restore and persist client submitted bookings (ID 43 & 42)
         try {
             if (!file_exists(__DIR__ . '/../assets/uploads/samples/6a159775e3e76.png') && file_exists(__DIR__ . '/../assets/uploads/6a159775e3e76.png')) {

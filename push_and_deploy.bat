@@ -1,39 +1,28 @@
 @echo off
-title Push to GitHub and Deploy to Vercel
+title Push Changes and Deploy to Vercel
 cd /d "%~dp0"
 
 echo ========================================================
-echo   [1/2] Pushing Activity Logs & Payload Fix to GitHub
+echo  [1/2] Pushing Clean Diff Parser to GitHub (AKC-MAIN)
 echo ========================================================
 echo.
 
 git add -A
-git commit -m "Enhance activity logs display: fallback on action details, status transitions, and deletion info"
+git commit -m "Fix escaped JSON string parsing in Activity Logs to render clean attribute diffs"
 git push -u akc-main main --force
 
 echo.
 echo ========================================================
-echo   [2/2] Deploying directly to Vercel Production
+echo  [2/2] Deploying directly to Vercel Production
 echo ========================================================
 echo.
 
-where npx >nul 2>&1
-if %ERRORLEVEL% equ 0 (
-    npx --yes vercel --prod --yes
-    goto DONE
-)
+call npx --yes vercel --prod --yes
 
-where vercel >nul 2>&1
-if %ERRORLEVEL% equ 0 (
-    vercel --prod --yes
-    goto DONE
-)
-
-:DONE
 echo.
 echo ========================================================
-echo   COMPLETE! Refresh https://akc-beta.vercel.app/super_admin/activity_logs.php
+echo  DEPLOYMENT COMPLETE!
+echo  Please refresh https://akc-beta.vercel.app/super_admin/activity_logs.php
 echo ========================================================
 echo.
 pause
-

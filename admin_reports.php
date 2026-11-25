@@ -8,7 +8,13 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_a
     exit();
 }
 
-// 1. Fetch Volume Trend (Last 7 Days) - Compatible with SQLite and MySQL
+// 1. Fetch Volume Trend (Last 7 Days, continuous calendar days) - Compatible with SQLite and MySQL
+$datesMap = [];
+for ($i = 6; $i >= 0; $i--) {
+    $d = date('Y-m-d', strtotime("-$i days"));
+    $datesMap[$d] = 0;
+}
+
 $sevenDaysAgo = date('Y-m-d 00:00:00', strtotime('-7 days'));
 $stmtVolume = $conn->prepare("
     SELECT DATE(created_at) as booking_date, COUNT(*) as count 
@@ -20,11 +26,47 @@ $stmtVolume = $conn->prepare("
 $stmtVolume->execute(['sevendays' => $sevenDaysAgo]);
 $volume_data = $stmtVolume->fetchAll(PDO::FETCH_ASSOC);
 
+$totalLast7 = 0;
+foreach ($volume_data as $row) {
+    $bDate = $row['booking_date'];
+    if (isset($datesMap[$bDate])) {
+        $datesMap[$bDate] = (int) $row['count'];
+        $totalLast7 += (int) $row['count'];
+    }
+}
+
+// If no bookings occurred in the last 7 days, expand window to the last 30 days so the graph is never a blank empty line
+$is30DaysWindow = false;
+if ($totalLast7 === 0) {
+    $datesMap = [];
+    for ($i = 29; $i >= 0; $i--) {
+        $d = date('Y-m-d', strtotime("-$i days"));
+        $datesMap[$d] = 0;
+    }
+    $thirtyDaysAgo = date('Y-m-d 00:00:00', strtotime('-30 days'));
+    $stmtVolume30 = $conn->prepare("
+        SELECT DATE(created_at) as booking_date, COUNT(*) as count 
+        FROM test_bookings 
+        WHERE created_at >= :thirtydays
+        GROUP BY DATE(created_at) 
+        ORDER BY booking_date ASC
+    ");
+    $stmtVolume30->execute(['thirtydays' => $thirtyDaysAgo]);
+    $v30 = $stmtVolume30->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($v30 as $row) {
+        $bDate = $row['booking_date'];
+        if (isset($datesMap[$bDate])) {
+            $datesMap[$bDate] = (int) $row['count'];
+        }
+    }
+    $is30DaysWindow = true;
+}
+
 $dates = [];
 $counts = [];
-foreach ($volume_data as $row) {
-    $dates[] = date('M d', strtotime($row['booking_date']));
-    $counts[] = (int) $row['count'];
+foreach ($datesMap as $dStr => $cnt) {
+    $dates[] = date('M d', strtotime($dStr));
+    $counts[] = $cnt;
 }
 
 // 2. Fetch Sample Type Popularity
@@ -228,7 +270,8 @@ $top_clients = $conn->query($client_query)->fetchAll(PDO::FETCH_ASSOC);
 
                     <!-- Volume Trend Chart -->
                     <div class="chart-card full-width">
-                        <h3><i class="fa-solid fa-chart-area"></i> Test Request Volume (Last 7 Days)</h3>
+                        <h3><i class="fa-solid fa-chart-area"></i> Test Request Volume
+                            <?php echo $is30DaysWindow ? '(Last 30 Days)' : '(Last 7 Days)'; ?></h3>
                         <div class="chart-container" style="height: 350px;">
                             <canvas id="volumeChart"></canvas>
                         </div>

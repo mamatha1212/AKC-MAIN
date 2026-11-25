@@ -3,12 +3,12 @@ title Push Changes and Deploy to Vercel
 cd /d "%~dp0"
 
 echo ========================================================
-echo  [1/2] Pushing Server-Side Notification Render to GitHub
+echo  [1/2] Pushing Modern Bell UI & Reports Trend to GitHub
 echo ========================================================
 echo.
 
 git add -A
-git commit -m "Render client notifications directly in PHP server-side so history shows reliably without client JS dependence"
+git commit -m "Enhance notification bell badge UI with rounded badge and continuous timeline volume trends in analytics"
 git push -u akc-main main --force
 
 echo.

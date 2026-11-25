@@ -3,12 +3,12 @@ title Push Changes and Deploy to Vercel
 cd /d "%~dp0"
 
 echo ========================================================
-echo  [1/2] Pushing Exact Client Notification Filter to GitHub
+echo  [1/2] Pushing Server-Side Notification Render to GitHub
 echo ========================================================
 echo.
 
 git add -A
-git commit -m "Filter client notifications strictly by matching booking email and fix list rendering on notifications page"
+git commit -m "Render client notifications directly in PHP server-side so history shows reliably without client JS dependence"
 git push -u akc-main main --force
 
 echo.

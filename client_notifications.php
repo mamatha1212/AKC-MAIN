@@ -108,7 +108,38 @@ $fullname = $_SESSION['fullname'];
                 </div>
                 <div style="padding: 25px;">
                     <div class="notification-card-list" id="pageNotificationList">
-                        <!-- Populated dynamically via JS -->
+                        <?php if (!empty($sync_db_notif)): ?>
+                            <?php foreach ($sync_db_notif as $n): 
+                                $isUnread = (empty($n['is_read']) || $n['is_read'] == 0);
+                                $bData = !empty($n['booking_data']) ? htmlspecialchars(json_encode($n['booking_data']), ENT_QUOTES, 'UTF-8') : '';
+                                $timeDisplay = date('M d, Y h:i A', strtotime($n['created_at']));
+                            ?>
+                                <div class="notification-card-item <?php echo $isUnread ? 'unread' : ''; ?>" <?php if ($bData) echo "onclick='openViewModalFromElement(this)' data-booking='{$bData}' data-id='{$n['id']}'"; ?>>
+                                    <div class="notification-card-content">
+                                        <div class="notification-card-icon <?php echo $isUnread ? 'unread' : 'read'; ?>" style="background: <?php echo $isUnread ? '#eff6ff' : '#f1f5f9'; ?>; color: <?php echo $isUnread ? '#3b82f6' : '#94a3b8'; ?>;">
+                                            <i class="fa-solid fa-circle-info"></i>
+                                        </div>
+                                        <div class="notification-card-text">
+                                            <div class="notification-card-title"><?php echo htmlspecialchars($n['title'] ?? ('Status Update: Booking #' . $n['booking_id'])); ?></div>
+                                            <div class="notification-card-msg"><?php echo htmlspecialchars($n['message']); ?></div>
+                                            <div class="notification-card-time"><i class="fa-regular fa-clock"></i> <?php echo $timeDisplay; ?></div>
+                                        </div>
+                                    </div>
+                                    <div class="notification-card-meta">
+                                        <?php if ($isUnread): ?>
+                                            <span class="new-badge">New</span>
+                                        <?php endif; ?>
+                                        <button class="view-btn-notif" type="button"><i class="fa-solid fa-eye"></i> View Details</button>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="notifications-empty-state">
+                                <i class="fa-solid fa-bell-slash"></i>
+                                <h3>No Notification History</h3>
+                                <p>You don't have any notifications yet.</p>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -206,7 +237,30 @@ $fullname = $_SESSION['fullname'];
 </div>
 
 <script>
-const dbStatusNotifications = <?php echo json_encode($db_notif); ?>;
+function openViewModalFromElement(el) {
+    const rawData = el.getAttribute('data-booking');
+    const notifId = el.getAttribute('data-id');
+    if (notifId && el.classList.contains('unread')) {
+        const formData = new FormData();
+        formData.append('action', 'read_one');
+        formData.append('id', notifId);
+        fetch('mark_notifications_read.php', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    el.classList.remove('unread');
+                    const badge = el.querySelector('.new-badge');
+                    if (badge) badge.remove();
+                }
+            });
+    }
+    if (rawData) {
+        try {
+            const booking = JSON.parse(rawData);
+            openViewModal(booking);
+        } catch(e) {}
+    }
+}
 
 function getFileIcon(filename) {
     const ext = filename.split('.').pop().toLowerCase();

@@ -1,6 +1,15 @@
 <?php
-include 'includes/auth_check.php';
 include 'includes/db_connect.php';
+include 'includes/auth_check.php';
+
+// Strict Security Guard: Only active Super Admin or the active Admin assigned to Testings can make updates
+if (($_SESSION['role'] ?? '') === 'admin') {
+    $adminPerms = $_SESSION['permissions'] ?? [];
+    if (!in_array('testings', $adminPerms)) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized: You are not the active administrator assigned to Testings. Status cannot be modified.']);
+        exit();
+    }
+}
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $booking_id = $_POST['id'] ?? '';
@@ -214,7 +223,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             'old_data' => json_encode($oldLogData),
                             'new_data' => json_encode($newLogData)
                         ]);
-                    } catch (Throwable $e) {}
+                    } catch (Throwable $e) {
+                    }
                 }
             }
             echo json_encode(['success' => true]);

@@ -1,6 +1,23 @@
 <?php
-include 'includes/auth_check.php';
 include 'includes/db_connect.php';
+include 'includes/auth_check.php';
+
+// Strict Role and Service Guard:
+// If the logged in user is a regular admin, they MUST be actively assigned to 'testings'
+if (($_SESSION['role'] ?? '') === 'admin') {
+    $adminPerms = $_SESSION['permissions'] ?? [];
+    if (!in_array('testings', $adminPerms)) {
+        // This admin is NOT assigned to Testings (e.g. assigned to Courses, Support, or None)
+        if (in_array('courses', $adminPerms)) {
+            header("Location: admin/courses_dashboard.php");
+        } elseif (in_array('support_services', $adminPerms)) {
+            header("Location: admin/support_dashboard.php");
+        } else {
+            header("Location: profile_settings.php?notice=" . urlencode("No active service division is currently allocated to your admin account. Please contact Super Admin."));
+        }
+        exit();
+    }
+}
 
 // Handle Filters
 $search = $_GET['search'] ?? '';
@@ -13,9 +30,23 @@ $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 10;
 $page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 
+// Tenure Scope Filter for Admins (Super Admin sees everything)
+$tenureCondition = "";
+$tenureParams = [];
+if (($_SESSION['role'] ?? '') === 'admin' && !empty($_SESSION['admin_created_at'])) {
+    // Check if Super Admin granted full history permission
+    $allowFullHistory = in_array('full_history', $_SESSION['permissions'] ?? []);
+    if (!$allowFullHistory) {
+        // Admin only sees bookings from the day they took charge (or ongoing unfinished pending/in-progress)
+        $adminStartDate = date('Y-m-d 00:00:00', strtotime($_SESSION['admin_created_at']));
+        $tenureCondition = " AND (created_at >= :tenure_start OR status IN ('Pending', 'Accept'))";
+        $tenureParams['tenure_start'] = $adminStartDate;
+    }
+}
+
 // Build Query
-$base_query = "FROM test_bookings WHERE 1=1";
-$params = [];
+$base_query = "FROM test_bookings WHERE 1=1" . $tenureCondition;
+$params = $tenureParams;
 
 if (!empty($search)) {
     $base_query .= " AND (fullname LIKE :search OR email LIKE :search OR sample_type LIKE :search)";
@@ -40,12 +71,27 @@ $stmtCount->execute($params);
 $totalRecords = $stmtCount->fetchColumn();
 $totalPages = ceil($totalRecords / $limit);
 
-// Fetch summary stats (Overall totals, not filtered)
-$totalBookings = $conn->query("SELECT COUNT(*) FROM test_bookings")->fetchColumn();
-$completedBookings = $conn->query("SELECT COUNT(*) FROM test_bookings WHERE status = 'Complete'")->fetchColumn();
-$pendingBookings = $conn->query("SELECT COUNT(*) FROM test_bookings WHERE status = 'Pending'")->fetchColumn();
-$inProgressBookings = $conn->query("SELECT COUNT(*) FROM test_bookings WHERE status = 'Accept'")->fetchColumn();
-$rejectedBookings = $conn->query("SELECT COUNT(*) FROM test_bookings WHERE status = 'Cancel'")->fetchColumn();
+// Fetch summary stats (filtered by tenure for admins, overall for super admin)
+$totalBookings = $conn->prepare("SELECT COUNT(*) FROM test_bookings WHERE 1=1" . $tenureCondition);
+$totalBookings->execute($tenureParams);
+$totalBookings = $totalBookings->fetchColumn();
+
+$completedStmt = $conn->prepare("SELECT COUNT(*) FROM test_bookings WHERE status = 'Complete'" . $tenureCondition);
+$completedStmt->execute($tenureParams);
+$completedBookings = $completedStmt->fetchColumn();
+
+$pendingStmt = $conn->prepare("SELECT COUNT(*) FROM test_bookings WHERE status = 'Pending'" . $tenureCondition);
+$pendingStmt->execute($tenureParams);
+$pendingBookings = $pendingStmt->fetchColumn();
+
+$inProgStmt = $conn->prepare("SELECT COUNT(*) FROM test_bookings WHERE status = 'Accept'" . $tenureCondition);
+$inProgStmt->execute($tenureParams);
+$inProgressBookings = $inProgStmt->fetchColumn();
+
+$rejectedStmt = $conn->prepare("SELECT COUNT(*) FROM test_bookings WHERE status = 'Cancel'" . $tenureCondition);
+$rejectedStmt->execute($tenureParams);
+$rejectedBookings = $rejectedStmt->fetchColumn();
+
 $completionRate = $totalBookings > 0 ? round(($completedBookings / $totalBookings) * 100) : 0;
 
 // Today's counts for badges

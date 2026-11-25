@@ -3,12 +3,12 @@ title Push Changes and Deploy to Vercel
 cd /d "%~dp0"
 
 echo ========================================================
-echo  [1/2] Pushing Modern Bell UI & Reports Trend to GitHub
+echo  [1/2] Pushing Admin Service & Tenure Isolation to GitHub
 echo ========================================================
 echo.
 
 git add -A
-git commit -m "Enhance notification bell badge UI with rounded badge and continuous timeline volume trends in analytics"
+git commit -m "Implement active admin service lock, tenure-based booking filtering, and Super Admin historical toggle"
 git push -u akc-main main --force
 
 echo.

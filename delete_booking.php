@@ -1,6 +1,15 @@
 <?php
-include 'includes/auth_check.php';
 include 'includes/db_connect.php';
+include 'includes/auth_check.php';
+
+// Strict Security Guard: Only active Super Admin or the active Admin assigned to Testings can delete bookings
+if (($_SESSION['role'] ?? '') === 'admin') {
+    $adminPerms = $_SESSION['permissions'] ?? [];
+    if (!in_array('testings', $adminPerms)) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized: You are not assigned to Testings. Action denied.']);
+        exit();
+    }
+}
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $booking_id = $_POST['id'] ?? '';

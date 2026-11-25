@@ -1,11 +1,14 @@
 <?php
-include 'includes/auth_check.php';
 include 'includes/db_connect.php';
+include 'includes/auth_check.php';
 
-// Check if user is admin
-if ($_SESSION['role'] !== 'admin') {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-    exit();
+// Strict Security Guard: Only active Super Admin or the active Admin assigned to Testings can delete reports/files
+if (($_SESSION['role'] ?? '') === 'admin') {
+    $adminPerms = $_SESSION['permissions'] ?? [];
+    if (!in_array('testings', $adminPerms)) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized: You are not assigned to Testings. Action denied.']);
+        exit();
+    }
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {

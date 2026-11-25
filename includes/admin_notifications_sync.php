@@ -18,8 +18,29 @@ if (isset($_SESSION['user_id'])) {
             ");
             $stmtDbNotify->execute(['uid' => $_SESSION['user_id']]);
         } else {
-            $stmtDbNotify = $conn->prepare("SELECT * FROM user_notifications WHERE user_id = :uid ORDER BY created_at DESC LIMIT 50");
-            $stmtDbNotify->execute(['uid' => $_SESSION['user_id']]);
+            // Regular Admin: Filter notifications to only those belonging to their service division and within their tenure
+            $adminPerms = $_SESSION['permissions'] ?? [];
+            if (!in_array('testings', $adminPerms)) {
+                // Not assigned to testings -> don't show booking alerts
+                $stmtDbNotify = $conn->prepare("SELECT * FROM user_notifications WHERE user_id = :uid AND booking_id = 0 ORDER BY created_at DESC LIMIT 50");
+                $stmtDbNotify->execute(['uid' => $_SESSION['user_id']]);
+            } else {
+                $allowFullHistory = in_array('full_history', $adminPerms);
+                if (!$allowFullHistory && !empty($_SESSION['admin_created_at'])) {
+                    $adminStartDate = date('Y-m-d 00:00:00', strtotime($_SESSION['admin_created_at']));
+                    $stmtDbNotify = $conn->prepare("
+                        SELECT un.* FROM user_notifications un
+                        LEFT JOIN test_bookings tb ON un.booking_id = tb.id
+                        WHERE (un.user_id = :uid OR un.user_id IS NULL)
+                          AND (un.booking_id = 0 OR tb.created_at >= :tstart OR tb.status IN ('Pending', 'Accept'))
+                        ORDER BY un.created_at DESC LIMIT 50
+                    ");
+                    $stmtDbNotify->execute(['uid' => $_SESSION['user_id'], 'tstart' => $adminStartDate]);
+                } else {
+                    $stmtDbNotify = $conn->prepare("SELECT * FROM user_notifications WHERE (user_id = :uid OR user_id IS NULL) ORDER BY created_at DESC LIMIT 50");
+                    $stmtDbNotify->execute(['uid' => $_SESSION['user_id']]);
+                }
+            }
         }
         $sync_db_notif = $stmtDbNotify->fetchAll(PDO::FETCH_ASSOC);
         
@@ -41,31 +62,35 @@ if (isset($_SESSION['user_id'])) {
 }
 
 $sync_time_alerts = [];
-try {
-    $stmtNotify = $conn->query("SELECT * FROM test_bookings WHERE status = 'Accept'");
-    $accept_bookings = $stmtNotify->fetchAll(PDO::FETCH_ASSOC);
-    
-    $now = time();
-    foreach ($accept_bookings as $b_notify) {
-        if (empty($b_notify['estimated_time'])) continue;
+// Only show testing time alerts to Super Admin or admins assigned to testings
+$showTestingAlerts = (($_SESSION['role'] ?? '') === 'super_admin') || in_array('testings', $_SESSION['permissions'] ?? []);
+if ($showTestingAlerts) {
+    try {
+        $stmtNotify = $conn->query("SELECT * FROM test_bookings WHERE status = 'Accept'");
+        $accept_bookings = $stmtNotify->fetchAll(PDO::FETCH_ASSOC);
         
-        $est_time = strtotime($b_notify['estimated_time']);
-        $diff_sec = $est_time - $now;
-        $diff_hours = $diff_sec / 3600.0;
-        
-        if ($diff_hours <= 1.0) {
-            unset($b_notify['sample_photo']);
-            $alert_type = $diff_sec < 0 ? 'past_due' : 'due_soon';
-            $sync_time_alerts[] = [
-                'id' => $b_notify['id'],
-                'booking_data' => $b_notify,
-                'diff_sec' => $diff_sec,
-                'type' => $alert_type,
-                'timestamp' => strtotime($b_notify['accepted_at']) // Use accepted_at for sorting
-            ];
+        $now = time();
+        foreach ($accept_bookings as $b_notify) {
+            if (empty($b_notify['estimated_time'])) continue;
+            
+            $est_time = strtotime($b_notify['estimated_time']);
+            $diff_sec = $est_time - $now;
+            $diff_hours = $diff_sec / 3600.0;
+            
+            if ($diff_hours <= 1.0) {
+                unset($b_notify['sample_photo']);
+                $alert_type = $diff_sec < 0 ? 'past_due' : 'due_soon';
+                $sync_time_alerts[] = [
+                    'id' => $b_notify['id'],
+                    'booking_data' => $b_notify,
+                    'diff_sec' => $diff_sec,
+                    'type' => $alert_type,
+                    'timestamp' => strtotime($b_notify['accepted_at']) // Use accepted_at for sorting
+                ];
+            }
         }
-    }
-} catch (PDOException $e) {}
+    } catch (PDOException $e) {}
+}
 ?>
 <script>
 const dbNotificationsData = <?php echo json_encode($sync_time_alerts); ?>;

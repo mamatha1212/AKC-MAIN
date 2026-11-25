@@ -3,12 +3,12 @@ title Push Changes and Deploy to Vercel
 cd /d "%~dp0"
 
 echo ========================================================
-echo  [1/2] Pushing Client Notification Isolation to GitHub
+echo  [1/2] Pushing Client Notification Fix to GitHub
 echo ========================================================
 echo.
 
 git add -A
-git commit -m "Isolate client notifications strictly to logged-in user email and their own bookings"
+git commit -m "Fix client notifications rendering: instant DOM init and strict user email matching"
 git push -u akc-main main --force
 
 echo.

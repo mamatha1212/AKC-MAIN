@@ -8,8 +8,18 @@ if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'client') {
         $client_email = strtolower(trim($_SESSION['email'] ?? $_SESSION['username'] ?? ''));
         $client_username = strtolower(trim($_SESSION['username'] ?? ''));
 
-        // Strictly use only the currently logged in client's authenticated email & username
+        // Strictly use the currently logged-in client's authenticated user ID, email & username
         $userEmails = array_filter(array_unique([$client_email, $client_username]));
+        
+        // Also fetch user record email from users table to ensure 100% email accuracy
+        $stmtU = $conn->prepare("SELECT email, username FROM users WHERE id = :uid");
+        $stmtU->execute(['uid' => $client_user_id]);
+        $uRow = $stmtU->fetch(PDO::FETCH_ASSOC);
+        if ($uRow) {
+            if (!empty($uRow['email'])) $userEmails[] = strtolower(trim($uRow['email']));
+            if (!empty($uRow['username'])) $userEmails[] = strtolower(trim($uRow['username']));
+        }
+        $userEmails = array_values(array_filter(array_unique($userEmails)));
 
         // Find all bookings belonging ONLY to this specific logged-in client
         $placeholders = implode(',', array_fill(0, count($userEmails), '?'));
@@ -19,7 +29,7 @@ if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'client') {
             WHERE LOWER(TRIM(email)) IN ($placeholders)
             ORDER BY id DESC
         ");
-        $stmtBookings->execute(array_values($userEmails));
+        $stmtBookings->execute($userEmails);
         $clientBookings = $stmtBookings->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($clientBookings as $cb) {
@@ -27,10 +37,10 @@ if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'client') {
             $bstatus = $cb['status'];
             $stype = $cb['sample_type'] ?: 'Sample';
 
-            // Check if notification already exists for this booking and status
+            // Check if notification already exists for this booking and user
             $checkNotif = $conn->prepare("
                 SELECT COUNT(*) FROM user_notifications 
-                WHERE booking_id = :bid AND (user_id = :uid OR user_id IS NULL)
+                WHERE booking_id = :bid AND user_id = :uid
             ");
             $checkNotif->execute(['bid' => $bid, 'uid' => $client_user_id]);
             $existingCount = (int) $checkNotif->fetchColumn();
@@ -66,17 +76,17 @@ if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'client') {
             }
         }
 
-        // 2. Fetch all notifications belonging strictly to this client or client's own bookings
+        // 2. Fetch all notifications belonging strictly to this client's user_id OR client's own bookings
         $stmtDbNotify = $conn->prepare("
             SELECT DISTINCT un.* 
             FROM user_notifications un
-            INNER JOIN test_bookings tb ON un.booking_id = tb.id
+            LEFT JOIN test_bookings tb ON un.booking_id = tb.id
             WHERE un.user_id = :uid 
                OR (tb.email IS NOT NULL AND LOWER(TRIM(tb.email)) IN ($placeholders))
             ORDER BY un.created_at DESC 
             LIMIT 50
         ");
-        $stmtDbNotify->execute(array_merge(['uid' => $client_user_id], array_values($userEmails)));
+        $stmtDbNotify->execute(array_merge(['uid' => $client_user_id], $userEmails));
         $sync_db_notif = $stmtDbNotify->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($sync_db_notif as &$n) {
@@ -262,7 +272,14 @@ if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'client') {
         }
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
+    // Run immediately if DOM is already ready, or wait for DOMContentLoaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initNotifications);
+    } else {
+        initNotifications();
+    }
+
+    function initNotifications() {
         renderGlobalNotifications();
 
         // Topbar dropdown toggle

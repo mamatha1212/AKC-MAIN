@@ -481,7 +481,7 @@ if (($_SESSION['role'] ?? '') === 'admin') {
                     fileItem.id = 'view_file_item_' + file.id;
                     fileItem.innerHTML = `
                 <div class="edit-file-info" style="width: 100%;">
-                    <a href="assets/uploads/reports/${file.file_name}" target="_blank" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px; width: 100%;">
+                    <a href="download_report.php?id=${file.id}" target="_blank" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px; width: 100%;">
                         <i class="fa-solid ${icon}"></i>
                         <span class="edit-file-name">${file.file_name}</span>
                     </a>

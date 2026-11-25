@@ -1121,8 +1121,8 @@ try {
                                                 if ($displayStatus == 'Cancel')
                                                     $displayStatus = 'Rejected';
 
-                                                // Fetch files for this booking to include in both table and modal
-                                                $fileStmt = $conn->prepare("SELECT * FROM booking_files WHERE booking_id = :bid");
+                                                // Fetch files for this booking to include in both table and modal (exclude base64 file_path to keep HTML compact)
+                                                $fileStmt = $conn->prepare("SELECT id, booking_id, file_name, file_type, uploaded_at FROM booking_files WHERE booking_id = :bid");
                                                 $fileStmt->execute(['bid' => $booking['id']]);
                                                 $files = $fileStmt->fetchAll(PDO::FETCH_ASSOC);
                                                 $booking['attached_files'] = $files; // Add to booking array
@@ -1152,7 +1152,7 @@ try {
                                                                 if (strpos($file['file_type'], 'word') !== false || strpos($file['file_name'], '.doc') !== false)
                                                                     $icon = "fa-file-word";
                                                                 ?>
-                                                                <a href="assets/uploads/reports/<?php echo $file['file_name']; ?>"
+                                                                <a href="download_report.php?id=<?php echo (int)$file['id']; ?>"
                                                                     target="_blank" class="file-link-icon"
                                                                     data-file-id="<?php echo $file['id']; ?>"
                                                                     title="<?php echo htmlspecialchars($file['file_name']); ?>">
@@ -1748,7 +1748,7 @@ try {
                     fileItem.id = 'view_file_item_' + file.id;
                     fileItem.innerHTML = `
                 <div class="edit-file-info">
-                    <a href="assets/uploads/reports/${file.file_name}" target="_blank" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px;">
+                    <a href="download_report.php?id=${file.id}" target="_blank" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px;">
                         <i class="fa-solid ${icon}"></i>
                         <span class="edit-file-name">${file.file_name}</span>
                     </a>

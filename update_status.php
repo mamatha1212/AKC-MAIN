@@ -66,35 +66,67 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
         }
     }
+    $uploaded_count = 0;
     if (isset($_FILES['result_files'])) {
+        $isVercel = isset($_SERVER['VERCEL']) || getenv('VERCEL') || (PHP_OS_FAMILY !== 'Windows' && is_dir('/tmp'));
         $target_dir = "assets/uploads/reports/";
-        if (!file_exists($target_dir)) {
-            mkdir($target_dir, 0777, true);
+        if (!$isVercel && !file_exists($target_dir)) {
+            @mkdir($target_dir, 0777, true);
         }
+        $canWriteDisk = (!$isVercel && is_dir($target_dir) && is_writable($target_dir));
 
         $total_files = count($_FILES['result_files']['name']);
         for ($i = 0; $i < $total_files; $i++) {
             if ($_FILES['result_files']['error'][$i] == 0) {
                 $file_name = $_FILES['result_files']['name'][$i];
-                $file_type = $_FILES['result_files']['type'][$i];
+                $file_type = !empty($_FILES['result_files']['type'][$i]) ? $_FILES['result_files']['type'][$i] : 'application/octet-stream';
                 $file_tmp = $_FILES['result_files']['tmp_name'][$i];
 
                 $extension = pathinfo($file_name, PATHINFO_EXTENSION);
-                $unique_name = "report_" . $booking_id . "_" . uniqid() . "." . $extension;
-                $target_path = $target_dir . $unique_name;
+                $unique_name = "report_" . $booking_id . "_" . uniqid() . ($extension ? "." . $extension : "");
+                $stored_path = null;
 
-                if (move_uploaded_file($file_tmp, $target_path)) {
+                if ($canWriteDisk) {
+                    $target_path = $target_dir . $unique_name;
+                    if (@move_uploaded_file($file_tmp, $target_path)) {
+                        $stored_path = $target_path;
+                    }
+                }
+
+                // On Vercel serverless (read-only filesystem) or if disk write fails, store as base64 data URI in database
+                if ($stored_path === null) {
+                    $raw = @file_get_contents($file_tmp);
+                    if ($raw !== false) {
+                        $stored_path = 'data:' . $file_type . ';base64,' . base64_encode($raw);
+                    }
+                }
+
+                if ($stored_path !== null) {
                     // Save file info to database
                     $file_sql = "INSERT INTO booking_files (booking_id, file_name, file_path, file_type) VALUES (:bid, :fname, :fpath, :ftype)";
                     $file_stmt = $conn->prepare($file_sql);
-                    $file_stmt->execute([
-                        'bid' => $booking_id,
-                        'fname' => $unique_name,
-                        'fpath' => $target_path,
-                        'ftype' => $file_type
-                    ]);
+                    if (
+                        $file_stmt->execute([
+                            'bid' => $booking_id,
+                            'fname' => $unique_name,
+                            'fpath' => $stored_path,
+                            'ftype' => $file_type
+                        ])
+                    ) {
+                        $uploaded_count++;
+                    }
                 }
             }
+        }
+    }
+
+    // Final safety check: never mark Complete if no file exists in booking_files
+    if ($status === 'Complete' && $uploaded_count === 0) {
+        $checkFilesAfter = $conn->prepare("SELECT COUNT(*) FROM booking_files WHERE booking_id = :bid");
+        $checkFilesAfter->execute(['bid' => $booking_id]);
+        if ($checkFilesAfter->fetchColumn() == 0) {
+            echo json_encode(['success' => false, 'message' => 'Report file could not be saved. Please try uploading again.']);
+            exit();
         }
     }
 

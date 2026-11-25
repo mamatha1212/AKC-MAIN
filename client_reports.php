@@ -36,9 +36,9 @@ try {
     $stmt->execute(['email' => $user_email]);
     $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Fetch attached files for each booking
+    // Fetch attached files for each booking (exclude base64 file_path)
     foreach ($bookings as &$booking) {
-        $stmtFiles = $conn->prepare("SELECT * FROM booking_files WHERE booking_id = :id");
+        $stmtFiles = $conn->prepare("SELECT id, booking_id, file_name, file_type, uploaded_at FROM booking_files WHERE booking_id = :id");
         $stmtFiles->execute(['id' => $booking['id']]);
         $booking['attached_files'] = $stmtFiles->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -268,15 +268,15 @@ try {
                                 </div>
                                 <div class="report-actions">
                                     <?php if (count($booking['attached_files']) == 1): ?>
-                                        <a href="assets/uploads/reports/<?php echo $booking['attached_files'][0]['file_name']; ?>"
+                                        <a href="download_report.php?id=<?php echo (int) $booking['attached_files'][0]['id']; ?>&download=1"
                                             target="_blank" class="btn-download-all">
                                             <i class="fa-solid fa-download"></i> Download Report
                                         </a>
                                     <?php else: ?>
                                         <div style="display: flex; gap: 10px;">
                                             <?php foreach ($booking['attached_files'] as $index => $file): ?>
-                                                <a href="assets/uploads/reports/<?php echo $file['file_name']; ?>" target="_blank"
-                                                    class="btn-download-all"
+                                                <a href="download_report.php?id=<?php echo (int) $file['id']; ?>&download=1"
+                                                    target="_blank" class="btn-download-all"
                                                     title="<?php echo htmlspecialchars($file['file_name']); ?>">
                                                     <i class="fa-solid fa-download"></i> File <?php echo $index + 1; ?>
                                                 </a>

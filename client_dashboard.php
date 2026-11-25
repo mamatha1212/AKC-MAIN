@@ -65,9 +65,9 @@ try {
     $stmt->execute();
     $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Fetch attached files for each booking
+    // Fetch attached files for each booking (exclude base64 file_path to keep JSON compact)
     foreach ($bookings as &$booking) {
-        $stmtFiles = $conn->prepare("SELECT * FROM booking_files WHERE booking_id = :id");
+        $stmtFiles = $conn->prepare("SELECT id, booking_id, file_name, file_type, uploaded_at FROM booking_files WHERE booking_id = :id");
         $stmtFiles->execute(['id' => $booking['id']]);
         $booking['attached_files'] = $stmtFiles->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -84,7 +84,7 @@ try {
         $b = $stmtB->fetch(PDO::FETCH_ASSOC);
 
         if ($b) {
-            $stmtF = $conn->prepare("SELECT * FROM booking_files WHERE booking_id = :bid");
+            $stmtF = $conn->prepare("SELECT id, booking_id, file_name, file_type, uploaded_at FROM booking_files WHERE booking_id = :bid");
             $stmtF->execute(['bid' => $b['id']]);
             $b['attached_files'] = $stmtF->fetchAll(PDO::FETCH_ASSOC);
         }
@@ -703,8 +703,8 @@ try {
                                                 </button>
                                                 <?php if ($booking['status'] == 'Complete' && !empty($booking['attached_files'])): ?>
                                                     <?php if (count($booking['attached_files']) == 1): ?>
-                                                        <a href="assets/uploads/reports/<?php echo $booking['attached_files'][0]['file_name']; ?>"
-                                                            download target="_blank" class="btn-icon edit" title="Download Report"
+                                                        <a href="download_report.php?id=<?php echo (int)$booking['attached_files'][0]['id']; ?>&download=1"
+                                                            target="_blank" class="btn-icon edit" title="Download Report"
                                                             style="background-color: #10b981; color: white; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
                                                             <i class="fa-solid fa-download"></i>
                                                         </a>
@@ -960,7 +960,7 @@ try {
                     const fileItem = document.createElement('div');
                     fileItem.className = 'view-file-item';
                     fileItem.innerHTML = `
-                <a href="assets/uploads/reports/${file.file_name}" target="_blank" class="view-file-link">
+                <a href="download_report.php?id=${file.id}" target="_blank" class="view-file-link">
                     <i class="fa-solid ${icon}"></i>
                     <span>${file.file_name}</span>
                 </a>

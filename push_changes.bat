@@ -8,7 +8,7 @@ echo ========================================================
 echo.
 
 git add -A
-git commit -m "Add 4.5 MB file size limit validation, warning alerts, and spinner to status update modal"
+git commit -m "Fix report file upload persistence on Vercel by storing in DB and serving via download_report.php"
 git push -u akc-main main --force
 
 echo.

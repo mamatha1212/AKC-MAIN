@@ -8,19 +8,18 @@ if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'client') {
         $client_email = strtolower(trim($_SESSION['email'] ?? $_SESSION['username'] ?? ''));
         $client_username = strtolower(trim($_SESSION['username'] ?? ''));
 
-        // 1. Auto-generate notification entries for any status changes or completed bookings for this client
-        // that do not have an existing notification entry yet
-        $knownEmails = array_filter(array_unique([$client_email, $client_username, 'mamatha14031995@gmail.com', 'mamathasurekha2@gmail.com']));
+        // Strictly use only the currently logged in client's authenticated email & username
+        $userEmails = array_filter(array_unique([$client_email, $client_username]));
 
-        // Find all bookings for this client
-        $placeholders = implode(',', array_fill(0, count($knownEmails), '?'));
+        // Find all bookings belonging ONLY to this specific logged-in client
+        $placeholders = implode(',', array_fill(0, count($userEmails), '?'));
         $stmtBookings = $conn->prepare("
             SELECT id, email, sample_type, status, created_at, accepted_at, completed_at, rejected_at, rejection_reason 
             FROM test_bookings 
             WHERE LOWER(TRIM(email)) IN ($placeholders)
             ORDER BY id DESC
         ");
-        $stmtBookings->execute(array_values($knownEmails));
+        $stmtBookings->execute(array_values($userEmails));
         $clientBookings = $stmtBookings->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($clientBookings as $cb) {
@@ -67,17 +66,17 @@ if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'client') {
             }
         }
 
-        // 2. Fetch all notifications belonging to this client or client's bookings
+        // 2. Fetch all notifications belonging strictly to this client or client's own bookings
         $stmtDbNotify = $conn->prepare("
             SELECT DISTINCT un.* 
             FROM user_notifications un
-            LEFT JOIN test_bookings tb ON un.booking_id = tb.id
+            INNER JOIN test_bookings tb ON un.booking_id = tb.id
             WHERE un.user_id = :uid 
                OR (tb.email IS NOT NULL AND LOWER(TRIM(tb.email)) IN ($placeholders))
             ORDER BY un.created_at DESC 
             LIMIT 50
         ");
-        $stmtDbNotify->execute(array_merge(['uid' => $client_user_id], array_values($knownEmails)));
+        $stmtDbNotify->execute(array_merge(['uid' => $client_user_id], array_values($userEmails)));
         $sync_db_notif = $stmtDbNotify->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($sync_db_notif as &$n) {

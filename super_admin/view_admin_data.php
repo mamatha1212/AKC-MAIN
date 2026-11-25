@@ -99,19 +99,16 @@ try {
                                     }
                                     
                                     $service_name = 'None';
-                                    $dashboard_link = '../admin/testing_dashboard.php';
+                                    $dashboard_link = 'admin_data_details.php?id=' . $admin['id'];
                                     
                                     if (!empty($admin_perms)) {
                                         $p = $admin_perms[0];
                                         if ($p == 'courses') {
                                             $service_name = 'Courses';
-                                            $dashboard_link = '../admin/courses_dashboard.php';
                                         } elseif ($p == 'testings') {
                                             $service_name = 'Testings';
-                                            $dashboard_link = '../admin/testing_dashboard.php';
                                         } elseif ($p == 'support_services') {
                                             $service_name = 'Support';
-                                            $dashboard_link = '../admin/support_dashboard.php';
                                         } else {
                                             $service_name = ucfirst(str_replace('_', ' ', $p));
                                         }

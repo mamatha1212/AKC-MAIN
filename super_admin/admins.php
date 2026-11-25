@@ -495,6 +495,8 @@ try {
             border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
+            display: inline-block;
+            white-space: nowrap;
         }
 
         .status-active {
@@ -505,6 +507,33 @@ try {
         .status-inactive {
             background-color: #fee2e2;
             color: #dc2626;
+        }
+
+        /* Responsive Table Container with Horizontal Scroll */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .admin-table {
+            width: 100%;
+            min-width: 900px;
+            /* Ensures all columns breathe nicely with horizontal scroll on smaller viewports */
+            border-collapse: collapse;
+        }
+
+        .admin-table th,
+        .admin-table td {
+            white-space: nowrap;
+        }
+
+        .service-badge-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
         }
     </style>
 </head>
@@ -641,31 +670,33 @@ try {
                                             <td><?php echo htmlspecialchars($admin['email']); ?></td>
                                             <td><?php echo htmlspecialchars($admin['phone']); ?></td>
                                             <td>
-                                                <?php
-                                                $admin_perms = [];
-                                                if (!empty($admin['permissions'])) {
-                                                    $decoded = json_decode($admin['permissions'], true);
-                                                    if (is_array($decoded)) {
-                                                        $admin_perms = $decoded;
+                                                <div class="service-badge-container">
+                                                    <?php
+                                                    $admin_perms = [];
+                                                    if (!empty($admin['permissions'])) {
+                                                        $decoded = json_decode($admin['permissions'], true);
+                                                        if (is_array($decoded)) {
+                                                            $admin_perms = $decoded;
+                                                        }
                                                     }
-                                                }
-                                                if (empty($admin_perms)) {
-                                                    echo '<span class="text-muted" style="font-size:12px;">None</span>';
-                                                } else {
-                                                    $formatted_perms = array_map(function ($p) {
-                                                        if ($p == 'courses')
-                                                            return '<span style="background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; padding: 3px 9px; border-radius: 4px; font-size: 11.5px; font-weight: 600;">🎓 Courses</span>';
-                                                        if ($p == 'testings')
-                                                            return '<span style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 3px 9px; border-radius: 4px; font-size: 11.5px; font-weight: 600;">🧪 Testings</span>';
-                                                        if ($p == 'support_services' || $p == 'support')
-                                                            return '<span style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 3px 9px; border-radius: 4px; font-size: 11.5px; font-weight: 600;">🎧 Support</span>';
-                                                        if ($p == 'full_history')
-                                                            return '<span style="background: #fef3c7; color: #92400e; border: 1px solid #fde68a; padding: 3px 8px; border-radius: 4px; font-size: 10.5px; font-weight: 700;" title="Has permission to view older bookings prior to assignment">📜 All History</span>';
-                                                        return '<span style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; padding: 3px 9px; border-radius: 4px; font-size: 11.5px; font-weight: 600;">' . htmlspecialchars(ucfirst(str_replace('_', ' ', $p))) . '</span>';
-                                                    }, $admin_perms);
-                                                    echo implode(' ', $formatted_perms);
-                                                }
-                                                ?>
+                                                    if (empty($admin_perms)) {
+                                                        echo '<span class="text-muted" style="font-size:12px;">None</span>';
+                                                    } else {
+                                                        $formatted_perms = array_map(function ($p) {
+                                                            if ($p == 'courses')
+                                                                return '<span style="background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; padding: 4px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;">🎓 Courses</span>';
+                                                            if ($p == 'testings')
+                                                                return '<span style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 4px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;">🧪 Testings</span>';
+                                                            if ($p == 'support_services' || $p == 'support')
+                                                                return '<span style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 4px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;">🎧 Support</span>';
+                                                            if ($p == 'full_history')
+                                                                return '<span style="background: #fef3c7; color: #92400e; border: 1px solid #fde68a; padding: 3px 8px; border-radius: 5px; font-size: 11px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;" title="Has permission to view older bookings prior to assignment">📜 All History</span>';
+                                                            return '<span style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; padding: 4px 10px; border-radius: 6px; font-size: 11.5px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;">' . htmlspecialchars(ucfirst(str_replace('_', ' ', $p))) . '</span>';
+                                                        }, $admin_perms);
+                                                        echo implode('', $formatted_perms);
+                                                    }
+                                                    ?>
+                                                </div>
                                             </td>
                                             <td>
                                                 <?php if (isset($admin['is_active']) && $admin['is_active']): ?>
@@ -765,9 +796,8 @@ try {
                                 <?php endif; ?>
 
                                 <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                                    <a href="?page=<?php echo $i; ?><?php echo $queryString; ?>"
-                                        class="page-link <?php if ($i == $page)
-                                            echo 'active'; ?>"><?php echo $i; ?></a>
+                                    <a href="?page=<?php echo $i; ?><?php echo $queryString; ?>" class="page-link <?php if ($i == $page)
+                                              echo 'active'; ?>"><?php echo $i; ?></a>
                                 <?php endfor; ?>
 
                                 <?php if ($page < $totalPages): ?>

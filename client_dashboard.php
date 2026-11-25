@@ -1125,7 +1125,11 @@ try {
                 const display = timer.querySelector('.timer-display');
 
                 if (distance < 0 || isNaN(distance)) {
-                    display.innerHTML = "Processing...";
+                    timer.classList.add('overdue');
+                    timer.style.backgroundColor = '#fee2e2';
+                    timer.style.color = '#dc2626';
+                    timer.style.borderColor = '#fca5a5';
+                    display.innerHTML = '<strong style="color: #b91c1c;"><i class="fa-solid fa-triangle-exclamation" style="margin-right: 4px;"></i> OVERDUE</strong>';
                     return;
                 }
 

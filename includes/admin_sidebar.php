@@ -6,18 +6,23 @@
     <nav class="sidebar-nav">
         <ul>
             <li class="nav-section-label"><i class="fa-solid fa-grid-2"></i> MAIN</li>
-            <li class="<?php echo ($current_page == 'bookings') ? 'active' : ''; ?>"><a href="admin_dashboard.php"><i
-                        class="fa-solid fa-calendar-check"></i> Bookings</a></li>
-            <li class="<?php echo ($current_page == 'clients') ? 'active' : ''; ?>"><a href="admin_clients.php"><i
-                        class="fa-solid fa-users"></i> Clients</a></li>
-            <li class="<?php echo ($current_page == 'catalog') ? 'active' : ''; ?>"><a href="admin_catalog.php"><i
-                        class="fa-solid fa-layer-group"></i> Catalog & Mappings</a></li>
-            <li class="nav-section-label"><i class="fa-solid fa-chart-pie"></i> ANALYTICS</li>
-            <li class="<?php echo ($current_page == 'reports') ? 'active' : ''; ?>"><a href="admin_reports.php"><i
-                        class="fa-solid fa-chart-line"></i> Reports</a></li>
-            <li class="<?php echo ($current_page == 'notifications') ? 'active' : ''; ?>"><a
-                    href="admin_notifications.php"><i class="fa-solid fa-bell"></i> Notifications <span
-                        class="sidebar-badge" id="sidebarNotificationBadge" <?php echo (isset($sidebar_unread_count) && $sidebar_unread_count > 0) ? '' : 'style="display: none;"'; ?>><?php echo isset($sidebar_unread_count) ? $sidebar_unread_count : '0'; ?></span></a></li>
+            <?php
+            $canAccessTestings = (($_SESSION['role'] ?? '') === 'super_admin') || in_array('testings', $_SESSION['permissions'] ?? []);
+            if ($canAccessTestings):
+                ?>
+                <li class="<?php echo ($current_page == 'bookings') ? 'active' : ''; ?>"><a href="admin_dashboard.php"><i
+                            class="fa-solid fa-calendar-check"></i> Bookings</a></li>
+                <li class="<?php echo ($current_page == 'clients') ? 'active' : ''; ?>"><a href="admin_clients.php"><i
+                            class="fa-solid fa-users"></i> Clients</a></li>
+                <li class="<?php echo ($current_page == 'catalog') ? 'active' : ''; ?>"><a href="admin_catalog.php"><i
+                            class="fa-solid fa-layer-group"></i> Catalog & Mappings</a></li>
+                <li class="nav-section-label"><i class="fa-solid fa-chart-pie"></i> ANALYTICS</li>
+                <li class="<?php echo ($current_page == 'reports') ? 'active' : ''; ?>"><a href="admin_reports.php"><i
+                            class="fa-solid fa-chart-line"></i> Reports</a></li>
+                <li class="<?php echo ($current_page == 'notifications') ? 'active' : ''; ?>"><a
+                        href="admin_notifications.php"><i class="fa-solid fa-bell"></i> Notifications <span
+                            class="sidebar-badge" id="sidebarNotificationBadge" <?php echo (isset($sidebar_unread_count) && $sidebar_unread_count > 0) ? '' : 'style="display: none;"'; ?>><?php echo isset($sidebar_unread_count) ? $sidebar_unread_count : '0'; ?></span></a></li>
+            <?php endif; ?>
             <li class="nav-section-label"><i class="fa-solid fa-sliders"></i> SYSTEM</li>
             <li class="<?php echo ($current_page == 'profile') ? 'active' : ''; ?>"><a href="profile_settings.php"><i
                         class="fa-solid fa-gear"></i> Profile Settings</a></li>

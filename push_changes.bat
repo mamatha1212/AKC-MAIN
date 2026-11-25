@@ -8,7 +8,7 @@ echo ========================================================
 echo.
 
 git add -A
-git commit -m "Implement active admin service lock, tenure-based booking filtering, and Super Admin historical toggle"
+git commit -m "Implement in-tab Super Admin booking data review, vertical badge stacking, and overdue badge display"
 git push -u akc-main main --force
 
 echo.

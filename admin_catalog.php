@@ -1,15 +1,29 @@
 <?php
 // admin_catalog.php - Redesigned Clean & Structured Catalog Manager
-include 'includes/auth_check.php';
 include 'includes/db_connect.php';
+include 'includes/auth_check.php';
+
+// Check if user has permission to manage catalog (Super Admin or active Testings admin)
+$canManageCatalog = (($_SESSION['role'] ?? '') === 'super_admin') || in_array('testings', $_SESSION['permissions'] ?? []);
+
+// If regular admin without testings permission tries to access, redirect to profile settings
+if (($_SESSION['role'] ?? '') === 'admin' && !$canManageCatalog) {
+    header("Location: profile_settings.php?notice=" . urlencode("Catalog & Testing Mappings management is reserved for the active Testings Administrator."));
+    exit();
+}
 
 // Handle Form Submissions
 $message = '';
 $messageType = 'success';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Strict Guard: Prevent any write action if user is not authorized
+    if (!$canManageCatalog) {
+        $message = "Unauthorized: You do not have permission to modify the Testing Catalog.";
+        $messageType = 'error';
+    }
     // 1. Delete Product
-    if (isset($_POST['delete_product'])) {
+    elseif (isset($_POST['delete_product'])) {
         $product_id = (int)$_POST['product_id'];
         try {
             $conn->prepare("DELETE FROM product_test WHERE product_id = ?")->execute([$product_id]);

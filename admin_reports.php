@@ -1,11 +1,20 @@
 <?php
-include 'includes/auth_check.php';
 include 'includes/db_connect.php';
+include 'includes/auth_check.php';
 
 // Ensure user is an admin or super_admin
 if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'super_admin'])) {
     header("Location: login.php");
     exit();
+}
+
+// If regular admin without testings permission tries to access reports, redirect
+if (($_SESSION['role'] ?? '') === 'admin') {
+    $adminPerms = $_SESSION['permissions'] ?? [];
+    if (!in_array('testings', $adminPerms)) {
+        header("Location: profile_settings.php?notice=" . urlencode("Reports and Analytics access is restricted to the active Testings Administrator."));
+        exit();
+    }
 }
 
 // 1. Fetch Volume Trend (Last 7 Days, continuous calendar days) - Compatible with SQLite and MySQL

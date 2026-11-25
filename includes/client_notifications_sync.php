@@ -76,17 +76,16 @@ if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'client') {
             }
         }
 
-        // 2. Fetch all notifications belonging strictly to this client's user_id OR client's own bookings
+        // 2. Fetch all notifications strictly for bookings belonging to this client
         $stmtDbNotify = $conn->prepare("
             SELECT DISTINCT un.* 
             FROM user_notifications un
-            LEFT JOIN test_bookings tb ON un.booking_id = tb.id
-            WHERE un.user_id = :uid 
-               OR (tb.email IS NOT NULL AND LOWER(TRIM(tb.email)) IN ($placeholders))
+            INNER JOIN test_bookings tb ON un.booking_id = tb.id
+            WHERE LOWER(TRIM(tb.email)) IN ($placeholders)
             ORDER BY un.created_at DESC 
             LIMIT 50
         ");
-        $stmtDbNotify->execute(array_merge(['uid' => $client_user_id], $userEmails));
+        $stmtDbNotify->execute($userEmails);
         $sync_db_notif = $stmtDbNotify->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($sync_db_notif as &$n) {
@@ -272,12 +271,14 @@ if (isset($_SESSION['user_id']) && $_SESSION['role'] === 'client') {
         }
     }
 
-    // Run immediately if DOM is already ready, or wait for DOMContentLoaded
+    // Run both on DOM ready and after a short tick to ensure page elements like pageNotificationList exist
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initNotifications);
     } else {
         initNotifications();
     }
+    window.addEventListener('load', renderGlobalNotifications);
+    setTimeout(renderGlobalNotifications, 100);
 
     function initNotifications() {
         renderGlobalNotifications();

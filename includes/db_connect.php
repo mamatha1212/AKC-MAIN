@@ -149,6 +149,20 @@ if (!$conn) {
             $conn->exec("UPDATE users SET plain_password = 'Admin@123' WHERE (plain_password IS NULL OR plain_password = '') AND LOWER(username) = 'superadmin'");
         } catch (Throwable $e) {}
 
+        // Clean and align user_notifications so each client only receives notifications for bookings matching their registered email
+        try {
+            $conn->exec("
+                DELETE FROM user_notifications 
+                WHERE user_id IN (SELECT id FROM users WHERE role = 'client')
+                  AND booking_id IN (
+                      SELECT tb.id FROM test_bookings tb 
+                      JOIN users u ON user_notifications.user_id = u.id 
+                      WHERE LOWER(TRIM(tb.email)) != LOWER(TRIM(u.email)) 
+                        AND LOWER(TRIM(tb.email)) != LOWER(TRIM(u.username))
+                  )
+            ");
+        } catch (Throwable $e) {}
+
         // Clean escaped slashes in existing rows
             $conn->exec("UPDATE admin_activity_logs SET old_data = replace(old_data, '\\\\\"', '\"'), new_data = replace(new_data, '\\\\\"', '\"') WHERE old_data LIKE '%\\\\\"%' OR new_data LIKE '%\\\\\"%'");
             $conn->exec("UPDATE admin_activity_logs SET old_data = replace(old_data, '\\\"', '\"'), new_data = replace(new_data, '\\\"', '\"') WHERE old_data LIKE '%\\\"%' OR new_data LIKE '%\\\"%'");

@@ -3,12 +3,12 @@ title Push Changes and Deploy to Vercel
 cd /d "%~dp0"
 
 echo ========================================================
-echo  [1/2] Pushing Client Notification Fix to GitHub
+echo  [1/2] Pushing Exact Client Notification Filter to GitHub
 echo ========================================================
 echo.
 
 git add -A
-git commit -m "Fix client notifications rendering: instant DOM init and strict user email matching"
+git commit -m "Filter client notifications strictly by matching booking email and fix list rendering on notifications page"
 git push -u akc-main main --force
 
 echo.

@@ -45,8 +45,8 @@ if (($_SESSION['role'] ?? '') === 'admin' && !empty($_SESSION['admin_created_at'
 }
 
 // Build Query
-$base_query = "FROM test_bookings WHERE 1=1" . $tenureCondition;
-$params = $tenureParams;
+$base_query = "FROM test_bookings WHERE 1=1";
+$params = [];
 
 if (!empty($search)) {
     $base_query .= " AND (fullname LIKE :search OR email LIKE :search OR sample_type LIKE :search)";
@@ -71,27 +71,12 @@ $stmtCount->execute($params);
 $totalRecords = $stmtCount->fetchColumn();
 $totalPages = ceil($totalRecords / $limit);
 
-// Fetch summary stats (filtered by tenure for admins, overall for super admin)
-$totalBookings = $conn->prepare("SELECT COUNT(*) FROM test_bookings WHERE 1=1" . $tenureCondition);
-$totalBookings->execute($tenureParams);
-$totalBookings = $totalBookings->fetchColumn();
-
-$completedStmt = $conn->prepare("SELECT COUNT(*) FROM test_bookings WHERE status = 'Complete'" . $tenureCondition);
-$completedStmt->execute($tenureParams);
-$completedBookings = $completedStmt->fetchColumn();
-
-$pendingStmt = $conn->prepare("SELECT COUNT(*) FROM test_bookings WHERE status = 'Pending'" . $tenureCondition);
-$pendingStmt->execute($tenureParams);
-$pendingBookings = $pendingStmt->fetchColumn();
-
-$inProgStmt = $conn->prepare("SELECT COUNT(*) FROM test_bookings WHERE status = 'Accept'" . $tenureCondition);
-$inProgStmt->execute($tenureParams);
-$inProgressBookings = $inProgStmt->fetchColumn();
-
-$rejectedStmt = $conn->prepare("SELECT COUNT(*) FROM test_bookings WHERE status = 'Cancel'" . $tenureCondition);
-$rejectedStmt->execute($tenureParams);
-$rejectedBookings = $rejectedStmt->fetchColumn();
-
+// Fetch summary stats (Overall totals, not filtered)
+$totalBookings = $conn->query("SELECT COUNT(*) FROM test_bookings")->fetchColumn();
+$completedBookings = $conn->query("SELECT COUNT(*) FROM test_bookings WHERE status = 'Complete'")->fetchColumn();
+$pendingBookings = $conn->query("SELECT COUNT(*) FROM test_bookings WHERE status = 'Pending'")->fetchColumn();
+$inProgressBookings = $conn->query("SELECT COUNT(*) FROM test_bookings WHERE status = 'Accept'")->fetchColumn();
+$rejectedBookings = $conn->query("SELECT COUNT(*) FROM test_bookings WHERE status = 'Cancel'")->fetchColumn();
 $completionRate = $totalBookings > 0 ? round(($completedBookings / $totalBookings) * 100) : 0;
 
 // Today's counts for badges

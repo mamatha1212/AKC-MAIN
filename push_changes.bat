@@ -8,7 +8,7 @@ echo ========================================================
 echo.
 
 git add -A
-git commit -m "Permanently assign mamathasurekha14@gmail.com as primary Testings admin across all Vercel deployments"
+git commit -m "Fix admin dashboard booking visibility so new test bookings appear immediately"
 git push -u akc-main main --force
 
 echo.

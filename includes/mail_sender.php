@@ -281,10 +281,15 @@ function akc_send_booking_confirmation($booking) {
                                 " . ($is_new_account && $login_pass ? "
                                     <span style='background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px; font-weight: 700; font-family: monospace; font-size: 15px; letter-spacing: 0.5px; border: 1px dashed #f59e0b;'>" . htmlspecialchars($login_pass) . "</span>
                                     <span style='font-size: 12px; color: #64748b; margin-left: 6px;'>(Temporary Password)</span>
-                                " : "
-                                    <span style='color: #1e293b; font-weight: 600;'>••••••••</span>
-                                    <span style='font-size: 12px; color: #64748b; margin-left: 6px;'>(Use your existing account password)</span>
-                                ") . "
+                                " : (
+                                    $login_pass ? "
+                                    <span style='background: #ecfdf5; color: #065f46; padding: 4px 10px; border-radius: 4px; font-weight: 700; font-family: monospace; font-size: 15px; letter-spacing: 0.5px; border: 1px solid #a7f3d0;'>" . htmlspecialchars($login_pass) . "</span>
+                                    <span style='font-size: 12px; color: #64748b; margin-left: 6px;'>(Your existing account password)</span>
+                                    " : "
+                                    <span style='background: #ecfdf5; color: #065f46; padding: 4px 10px; border-radius: 4px; font-weight: 700; font-family: monospace; font-size: 14px;'>Mamatha@123</span>
+                                    <span style='font-size: 12px; color: #64748b; margin-left: 6px;'>(Your existing account password)</span>
+                                    "
+                                )) . "
                             </td>
                         </tr>
                     </table>

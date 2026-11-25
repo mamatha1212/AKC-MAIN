@@ -1,88 +1,36 @@
 @echo off
-title AKC Website Local Server (Keep Open)
+title AKC Packaging Technology & Research Centre - Local Server
 cd /d "%~dp0"
 
-:: Check if nested inside AKC-main folder
-if exist "AKC-main\router.php" (
-    cd "AKC-main"
-)
-
 echo ========================================================
-echo               AKC Website Local Server
+echo        AKC PACKAGING TECHNOLOGY & RESEARCH CENTRE
+echo                   Local Web Server
 echo ========================================================
 echo.
 
-set "PHP_CMD="
-
-:: Check if php is in PATH
 where php >nul 2>&1
 if %ERRORLEVEL% equ 0 (
-    set "PHP_CMD=php"
-    goto START_SERVER
+    echo [INFO] Starting PHP Built-in Server on http://localhost:8000 ...
+    echo [INFO] Press Ctrl+C in this window anytime to stop the server.
+    echo.
+    start "" "http://localhost:8000"
+    php -S localhost:8000 router.php
+    goto END
 )
 
-:: Check common installation paths
-if exist "C:\xampp\php\php.exe" (
-    set "PHP_CMD=C:\xampp\php\php.exe"
-    goto START_SERVER
+where C:\xampp\php\php.exe >nul 2>&1
+if %ERRORLEVEL% equ 0 (
+    echo [INFO] Starting PHP Server from XAMPP on http://localhost:8000 ...
+    start "" "http://localhost:8000"
+    C:\xampp\php\php.exe -S localhost:8000 router.php
+    goto END
 )
 
-if exist "C:\php\php.exe" (
-    set "PHP_CMD=C:\php\php.exe"
-    goto START_SERVER
-)
-
-for /d %%D in ("C:\laragon\bin\php\php*") do (
-    if exist "%%D\php.exe" (
-        set "PHP_CMD=%%D\php.exe"
-        goto START_SERVER
-    )
-)
-
-for /d %%D in ("C:\wamp64\bin\php\php*") do (
-    if exist "%%D\php.exe" (
-        set "PHP_CMD=%%D\php.exe"
-        goto START_SERVER
-    )
-)
-
-for /d %%D in ("C:\Program Files\PHP\v*") do (
-    if exist "%%D\php.exe" (
-        set "PHP_CMD=%%D\php.exe"
-        goto START_SERVER
-    )
-)
-
-:: If PHP is not found anywhere
-echo [ERROR] PHP was not found on your computer.
+echo [WARNING] PHP was not found in system PATH or C:\xampp\php\.
 echo.
-echo Because this website is built in PHP, PHP is required to run it.
+echo If you use XAMPP, open the XAMPP Control Panel and start Apache.
+echo Then open: http://localhost/AKC-Hemachandra
 echo.
-echo Please choose one of the following options:
-echo   1. Install XAMPP from https://www.apachefriends.org
-echo      (Then start Apache from XAMPP Control Panel)
-echo   2. Or download PHP for Windows from https://windows.php.net/download/
-echo      and add it to your System PATH.
-echo.
-echo ========================================================
 pause
-exit /b
 
-:START_SERVER
-echo Found PHP at: %PHP_CMD%
-echo.
-echo Starting local web server at http://localhost:8000 ...
-echo.
-echo *** IMPORTANT: Keep this window OPEN while browsing! ***
-echo (You can minimize it. If you close it, the site will stop.)
-echo.
-
-:: Automatically launch default web browser after 1 second
-start "" cmd /c "timeout /t 1 /nobreak >nul & start http://localhost:8000"
-
-:RUN_LOOP
-"%PHP_CMD%" -S localhost:8000 router.php
-echo.
-echo Server stopped. Restarting in 2 seconds (Press Ctrl+C to stop)...
-timeout /t 2 /nobreak >nul
-goto RUN_LOOP
+:END

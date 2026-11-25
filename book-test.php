@@ -1,4 +1,4 @@
-run <?php
+<?php
 require_once 'includes/db_connect.php';
 require_once 'includes/mail_sender.php';
 
@@ -108,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $booking_id = $conn->lastInsertId();
 
             // 4. Notifications & Client Account Creation / Recognition
-            $stmtUser = $conn->prepare("SELECT id, username, email, role, password FROM users WHERE LOWER(email) = LOWER(:email) OR LOWER(username) = LOWER(:email) LIMIT 1");
+            $stmtUser = $conn->prepare("SELECT id, username, email, role, password, plain_password FROM users WHERE LOWER(email) = LOWER(:email) OR LOWER(username) = LOWER(:email) LIMIT 1");
             $stmtUser->execute(['email' => $email]);
             $existing_user = $stmtUser->fetch(PDO::FETCH_ASSOC);
 
@@ -117,8 +117,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($existing_user) {
                 $client_user_id = $existing_user['id'];
-                // Existing user: DO NOT overwrite or generate a new password!
-                // Keep their existing password so they can log in with their known credentials.
+                // Existing user: Keep their existing password, DO NOT generate a new one!
+                // Fetch the user's existing plain_password if available
+                $plain_password = !empty($existing_user['plain_password']) ? $existing_user['plain_password'] : null;
+
                 // Update profile information (fullname, phone) if not previously set
                 $updUser = $conn->prepare("
                     UPDATE users 
@@ -139,13 +141,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $hashed_password = password_hash($plain_password, PASSWORD_DEFAULT);
 
                 $createStmt = $conn->prepare("
-                    INSERT INTO users (username, email, password, role, fullname, phone, is_active, created_at)
-                    VALUES (:username, :email, :password, 'client', :fullname, :phone, 1, datetime('now'))
+                    INSERT INTO users (username, email, password, plain_password, role, fullname, phone, is_active, created_at)
+                    VALUES (:username, :email, :password, :plain_pass, 'client', :fullname, :phone, 1, datetime('now'))
                 ");
                 $createStmt->execute([
                     'username' => $email,
                     'email' => $email,
                     'password' => $hashed_password,
+                    'plain_pass' => $plain_password,
                     'fullname' => $fullname,
                     'phone' => $phone
                 ]);

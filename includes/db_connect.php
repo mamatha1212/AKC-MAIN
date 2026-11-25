@@ -138,7 +138,18 @@ if (!$conn) {
 
         // Populate meaningful data in existing admin_activity_logs where old_data and new_data are empty or escaped
         try {
-            // Clean escaped slashes in existing rows
+            // Ensure plain_password column exists in users table for showing actual password in email reminders
+        try {
+            $conn->exec("ALTER TABLE users ADD COLUMN plain_password TEXT DEFAULT NULL");
+        } catch (Throwable $e) {}
+
+        // Populate known passwords for default synced accounts
+        try {
+            $conn->exec("UPDATE users SET plain_password = 'Mamatha@123' WHERE (plain_password IS NULL OR plain_password = '') AND LOWER(username) IN ('mamatha', 'mamathasurekha2@gmail.com', 'admin', 'gadigitalsolutionss@gmail.com')");
+            $conn->exec("UPDATE users SET plain_password = 'Admin@123' WHERE (plain_password IS NULL OR plain_password = '') AND LOWER(username) = 'superadmin'");
+        } catch (Throwable $e) {}
+
+        // Clean escaped slashes in existing rows
             $conn->exec("UPDATE admin_activity_logs SET old_data = replace(old_data, '\\\\\"', '\"'), new_data = replace(new_data, '\\\\\"', '\"') WHERE old_data LIKE '%\\\\\"%' OR new_data LIKE '%\\\\\"%'");
             $conn->exec("UPDATE admin_activity_logs SET old_data = replace(old_data, '\\\"', '\"'), new_data = replace(new_data, '\\\"', '\"') WHERE old_data LIKE '%\\\"%' OR new_data LIKE '%\\\"%'");
             $conn->exec("UPDATE admin_activity_logs SET old_data = replace(old_data, '\\\\', ''), new_data = replace(new_data, '\\\\', '') WHERE old_data LIKE '%\\\\%' OR new_data LIKE '%\\\\%'");

@@ -8,7 +8,7 @@ echo ========================================================
 echo.
 
 git add -A
-git commit -m "Implement in-tab Super Admin booking data review, vertical badge stacking, and overdue badge display"
+git commit -m "Permanently assign mamathasurekha14@gmail.com as primary Testings admin across all Vercel deployments"
 git push -u akc-main main --force
 
 echo.

@@ -111,21 +111,30 @@ if (!$conn) {
                 ['username' => 'mamathasurekha2@gmail.com', 'email' => 'mamathasurekha2@gmail.com', 'pass' => 'Mamatha@123', 'role' => 'client', 'fullname' => 'Mamatha'],
                 ['username' => 'gadigitalsolutionss@gmail.com', 'email' => 'gadigitalsolutionss@gmail.com', 'pass' => 'Mamatha@123', 'role' => 'client', 'fullname' => 'Customer'],
                 ['username' => 'superadmin', 'email' => 'mamathasurekha8@gmail.com', 'pass' => 'Admin@123', 'role' => 'super_admin', 'fullname' => 'System Super Admin'],
-                ['username' => 'admin', 'email' => 'mamathasurekha14@gmail.com', 'pass' => 'Mamatha@123', 'role' => 'admin', 'fullname' => 'Admin']
+                ['username' => 'admin', 'email' => 'mamathasurekha14@gmail.com', 'pass' => 'Mamatha@123', 'role' => 'admin', 'fullname' => 'Admin', 'permissions' => json_encode(['testings', 'full_history'])]
             ];
             foreach ($accountsToSync as $acc) {
                 $hash = password_hash($acc['pass'], PASSWORD_DEFAULT);
                 $uStmt = $conn->prepare("SELECT id FROM users WHERE LOWER(email) = LOWER(?) OR LOWER(username) = LOWER(?)");
                 $uStmt->execute([$acc['email'], $acc['username']]);
                 $existing = $uStmt->fetch();
+                $perms = $acc['permissions'] ?? null;
                 if ($existing) {
-                    $upd = $conn->prepare("UPDATE users SET username = ?, email = ?, password = ?, role = ?, fullname = ?, is_active = 1 WHERE id = ?");
-                    $upd->execute([$acc['username'], $acc['email'], $hash, $acc['role'], $acc['fullname'], $existing['id']]);
+                    if ($perms !== null) {
+                        $upd = $conn->prepare("UPDATE users SET username = ?, email = ?, password = ?, role = ?, fullname = ?, permissions = ?, is_active = 1 WHERE id = ?");
+                        $upd->execute([$acc['username'], $acc['email'], $hash, $acc['role'], $acc['fullname'], $perms, $existing['id']]);
+                    } else {
+                        $upd = $conn->prepare("UPDATE users SET username = ?, email = ?, password = ?, role = ?, fullname = ?, is_active = 1 WHERE id = ?");
+                        $upd->execute([$acc['username'], $acc['email'], $hash, $acc['role'], $acc['fullname'], $existing['id']]);
+                    }
                 } else {
-                    $ins = $conn->prepare("INSERT INTO users (username, email, password, role, fullname, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, datetime('now'))");
-                    $ins->execute([$acc['username'], $acc['email'], $hash, $acc['role'], $acc['fullname']]);
+                    $ins = $conn->prepare("INSERT INTO users (username, email, password, role, fullname, permissions, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now'))");
+                    $ins->execute([$acc['username'], $acc['email'], $hash, $acc['role'], $acc['fullname'], $perms]);
                 }
             }
+
+            // Ensure admin5 (admin@akc.com) does NOT hold testings so mamathasurekha14@gmail.com is the sole Testings admin
+            $conn->exec("UPDATE users SET permissions = '[]' WHERE LOWER(username) = 'admin5' OR LOWER(email) = 'admin@akc.com'");
             $chk44 = $conn->query("SELECT id FROM test_bookings WHERE id = 44")->fetch();
             if (!$chk44) {
                 $conn->exec("INSERT OR IGNORE INTO test_bookings 

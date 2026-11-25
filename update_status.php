@@ -55,7 +55,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
 
-    // Handle Multiple File Uploads
+    // Check individual file sizes
+    if (isset($_FILES['result_files'])) {
+        $max_bytes = 4.5 * 1024 * 1024;
+        foreach ($_FILES['result_files']['size'] as $idx => $fsize) {
+            if ($fsize > $max_bytes) {
+                $fname = $_FILES['result_files']['name'][$idx] ?? 'Selected file';
+                echo json_encode(['success' => false, 'message' => "File '$fname' exceeds the 4.5 MB server limit. Please upload a smaller or compressed file."]);
+                exit();
+            }
+        }
+    }
     if (isset($_FILES['result_files'])) {
         $target_dir = "assets/uploads/reports/";
         if (!file_exists($target_dir)) {

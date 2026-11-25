@@ -8,7 +8,7 @@ echo ========================================================
 echo.
 
 git add -A
-git commit -m "Show complete bookings list on admin data details regardless of admin ID"
+git commit -m "Add 4.5 MB file size limit validation, warning alerts, and spinner to status update modal"
 git push -u akc-main main --force
 
 echo.

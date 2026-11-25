@@ -1415,12 +1415,15 @@ try {
                 </div>
 
                 <div id="edit_pdf_wrapper" class="form-group hidden">
-                    <label>Upload Reports / Files</label>
+                    <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span>Upload Reports / Files <span style="color: #ef4444; font-weight: 700;">*</span></span>
+                        <span style="font-size: 11px; font-weight: 700; color: #b91c1c; background: #fee2e2; padding: 2px 8px; border-radius: 4px;">Max 4.5 MB per file</span>
+                    </label>
                     <div class="upload-zone" id="admin-upload-zone"
                         onclick="document.getElementById('edit_result_files').click()">
                         <i class="fa-solid fa-cloud-arrow-up"></i>
                         <p>Click to browse or drag &amp; drop files here</p>
-                        <span>PDF, DOC, DOCX, PNG, JPG, SVG &amp; more &mdash; Multiple files allowed</span>
+                        <span>PDF, DOC, DOCX, PNG, JPG, SVG &amp; more &mdash; <strong>Max 4.5 MB per file</strong> (Vercel Limit)</span>
                     </div>
                     <input type="file" id="edit_result_files" multiple
                         accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.svg,.gif,.webp,.txt,.csv,.zip"
@@ -1486,12 +1489,24 @@ try {
             return dt.toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
         }
 
+        const MAX_FILE_SIZE = 4.5 * 1024 * 1024; // 4.5 MB in bytes (Vercel Serverless payload limit)
+
         function handleAdminFileSelect(files) {
+            let oversizedFiles = [];
             // Merge new files into selectedFiles array (avoid exact duplicates by name+size)
             Array.from(files).forEach(file => {
+                if (file.size > MAX_FILE_SIZE) {
+                    oversizedFiles.push(file.name + ' (' + formatFileSize(file.size) + ')');
+                    return;
+                }
                 const isDup = selectedFiles.some(f => f.name === file.name && f.size === file.size);
                 if (!isDup) selectedFiles.push(file);
             });
+
+            if (oversizedFiles.length > 0) {
+                alert('File upload limit exceeded (Max 4.5 MB):\n\nThe following file(s) are too large for server upload:\n• ' + oversizedFiles.join('\n• ') + '\n\nPlease compress or choose a file under 4.5 MB.');
+            }
+
             renderFilePreview();
         }
 
@@ -2028,12 +2043,21 @@ try {
                 return;
             }
 
-            if (status === 'Complete' && files.length === 0) {
-                // Only require if no files were already uploaded for this booking
+            if (status === 'Complete') {
                 const currentFiles = document.getElementById('current_files_list');
-                if (!currentFiles || currentFiles.children.length === 0) {
-                    alert('At least one report file is required to complete this booking.');
+                const hasExistingFiles = (currentFiles && currentFiles.children.length > 0);
+                
+                if (files.length === 0 && !hasExistingFiles) {
+                    alert('Upload is required: At least one report file is required to complete this booking.');
                     return;
+                }
+
+                // Check for oversized files before submitting
+                for (let i = 0; i < files.length; i++) {
+                    if (files[i].size > MAX_FILE_SIZE) {
+                        alert('File "' + files[i].name + '" (' + formatFileSize(files[i].size) + ') exceeds the 4.5 MB limit.\nPlease select a smaller file or compress it before saving.');
+                        return;
+                    }
                 }
             }
 
@@ -2047,20 +2071,44 @@ try {
                 formData.append('result_files[]', files[i]);
             }
 
+            const saveBtn = document.getElementById('saveStatusBtn');
+            const originalBtnHtml = saveBtn ? saveBtn.innerHTML : 'Save Changes';
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+            }
+
             fetch('update_status.php', {
                 method: 'POST',
                 body: formData
             })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        if (response.status === 413) {
+                            throw new Error('File payload too large (Vercel 4.5 MB limit). Please upload a smaller file.');
+                        }
+                        throw new Error('Server returned HTTP ' + response.status);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.success) {
                         location.reload();
                     } else {
                         alert('Error: ' + data.message);
+                        if (saveBtn) {
+                            saveBtn.disabled = false;
+                            saveBtn.innerHTML = originalBtnHtml;
+                        }
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
+                    alert('Upload Error: ' + error.message);
+                    if (saveBtn) {
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = originalBtnHtml;
+                    }
                 });
         }
 

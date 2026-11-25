@@ -8,7 +8,7 @@ echo ========================================================
 echo.
 
 git add -A
-git commit -m "Fix admin dashboard booking visibility so new test bookings appear immediately"
+git commit -m "Show complete bookings list on admin data details regardless of admin ID"
 git push -u akc-main main --force
 
 echo.
